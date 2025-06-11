@@ -1,0 +1,43 @@
+# Configuración para ruff
+
+[tool.ruff]
+# Línea máxima de caracteres
+line-length = 100
+
+# Versión de Python objetivo
+target-version = "py312"
+
+# Excluir ciertos directorios
+exclude = [
+    ".git",
+    "__pycache__",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+# Habilitar todas las reglas de flake8, más algunas adicionales
+select = ["E", "F", "B", "I", "N", "C90"]
+
+# Ignorar algunas reglas específicas
+ignore = [
+    "E501",  # Líneas demasiado largas
+    "N801",  # Class names like ResNet18_2D are allowed
+    "N806",  # Variable names like B, N, H, W are common en PyTorch
+    "N812",  # Import F from torch.nn.functional is a common convention
+]
+
+# Configuración específica para formateador
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+# Configuración para isort
+[tool.ruff.lint.isort]
+known-first-party = ["models", "data", "utils"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+
+# Configuración para pycodestyle
+[tool.ruff.lint.pycodestyle]
+max-line-length = 100

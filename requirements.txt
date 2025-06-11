@@ -1,0 +1,27 @@
+# Requisitos para el proyecto PET_2025
+
+# Bibliotecas principales
+torch>=1.9.0
+torchvision>=0.10.0
+huggingface_hub>=0.32.4
+
+# Procesamiento de imágenes
+nibabel>=3.2.0
+scikit-image>=0.18.0
+
+# Análisis de datos y visualización
+numpy>=1.19.0
+pandas>=1.3.0
+matplotlib>=3.4.0
+seaborn>=0.11.0
+
+# Métricas y evaluación
+scikit-learn>=0.24.0
+
+# Utilidades
+PyYAML>=6.0
+tqdm>=4.62.0
+
+# Gestión de desarrollo y formato
+black>=22.0.0
+ruff>=0.0.256
