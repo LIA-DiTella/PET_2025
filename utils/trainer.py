@@ -24,7 +24,7 @@ except ImportError:
 class Trainer:
     """Clase para entrenar modelos de clasificación de imágenes médicas."""
 
-    def __init__(self, model, config, device=None, exp_dir=None, train_loader=None, val_loader=None, test_loader=None):
+    def __init__(self, model, config, device=None, exp_dir=None, train_loader=None, val_loader=None, test_loader=None, num_classes=2):
         """Inicializa el entrenador.
 
         Args:
@@ -58,7 +58,7 @@ class Trainer:
 
         # loss_config = self.config.get("training", {}).get("loss", {})
         # Calcular pesos de clases si no se proporcionan
-        class_counts = np.zeros(self.model.num_classes)
+        class_counts = np.zeros(num_classes)
         for _, targets in train_loader:
             for target in targets:
                 class_counts[target.item()] += 1
