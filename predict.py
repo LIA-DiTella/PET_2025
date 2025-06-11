@@ -182,7 +182,7 @@ def predict_batch(model_path, config_path, image_paths, output_file=None, gpu_id
     model = get_model(model_name, dimension, model_config).to(device)
 
     # Cargar pesos del modelo
-    checkpoint = torch.load(model_path, map_location=device)
+    checkpoint = torch.load(model_path, map_location=device, weights_only=False)
     model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
 

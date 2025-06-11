@@ -155,7 +155,7 @@ def get_resnet18_3d(config):
         )
         
         # Cargar pesos preentrenados
-        pretrained_dict = torch.load(weights_path, map_location=torch.device('cpu'))
+        pretrained_dict = torch.load(weights_path, map_location=torch.device('cpu'), weights_only=False)
         
         # Filtrar pesos relevantes (eliminar la capa FC que no coincide)
         model_dict = model.state_dict()

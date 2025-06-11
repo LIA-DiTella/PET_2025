@@ -320,8 +320,7 @@ class Trainer:
         self.logger.info(f"Mejor modelo en epoch {best_epoch} con métrica {best_val_metric:.4f}")
 
         # Cargar el mejor modelo para evaluación final
-        if val_loader:
-            self._load_best_model()
+        self._load_best_model()
 
         return {
             "best_epoch": best_epoch,
@@ -435,7 +434,8 @@ class Trainer:
         checkpoint_path = os.path.join(self.exp_dir, "checkpoints", "best_model.pth")
 
         if os.path.exists(checkpoint_path):
-            checkpoint = torch.load(checkpoint_path, map_location=self.device)
+            # Usar weights_only=False para cargar checkpoints propios que contienen métricas numpy
+            checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
             self.model.load_state_dict(checkpoint["model_state_dict"])
             self.logger.info(f"Mejor modelo cargado de {checkpoint_path}")
         else:

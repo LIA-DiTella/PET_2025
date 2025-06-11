@@ -93,7 +93,7 @@ def evaluate_model(model_path, config_path, data_config=None, output_dir=None, g
     model = get_model(model_name, dimension, model_config).to(device)
 
     # Cargar pesos del modelo
-    checkpoint = torch.load(model_path, map_location=device)
+    checkpoint = torch.load(model_path, map_location=device, weights_only=False)
     model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
 
