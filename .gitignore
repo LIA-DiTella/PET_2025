@@ -1,0 +1,8 @@
+/.cache
+.DS_Store
+/models/__pycache__
+/*/__pycache__
+*/__pycache__
+__pycache__
+/__pycache__
+data/ids.csv
