@@ -3,7 +3,7 @@ from torch import nn
 from torchvision import models
 
 
-def set_parameter_requires_grad(model, feature_extract) -> None:
+def set_parameter_requires_grad(model, feature_extract=True) -> None:
     """Configura requires_grad=False para los parámetros si feature_extract=True.
 
     Args:
@@ -43,7 +43,8 @@ class ResNet18_2D(nn.Module):
         self.model = models.resnet18(weights='IMAGENET1K_V1' if pretrained else None)
 
         # Congelar parámetros si feature_extract=True
-        set_parameter_requires_grad(self.model, feature_extract)
+        # set_parameter_requires_grad(self.model, feature_extract)
+        set_parameter_requires_grad(self.model)
 
         # Modificar la primera capa convolucional para aceptar imágenes de 1 canal (PET scans)
         # original_weight = self.model.conv1.weight.data
@@ -53,17 +54,17 @@ class ResNet18_2D(nn.Module):
 
         # Modificar la capa de clasificación final
         in_features = self.model.fc.in_features
-        # self.model.fc = nn.Sequential(
-        #     nn.Dropout(dropout_rate),
-        #     nn.Linear(in_features, 1024),
-        #     nn.ReLU(),
-        #     nn.Linear(1024, num_classes),
-        # )
         self.model.fc = nn.Sequential(
             nn.Dropout(dropout_rate),
-            nn.Linear(in_features, num_classes),
-            nn.Softmax(dim=1)  # Asegurar salida de probabilidades
+            nn.Linear(in_features, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, num_classes),
         )
+        # self.model.fc = nn.Sequential(
+        #     nn.Dropout(dropout_rate),
+        #     nn.Linear(in_features, num_classes),
+        #     nn.Softmax(dim=1)  # Asegurar salida de probabilidades
+        # )
 
     def forward(self, x):
         """Forward pass del modelo.
