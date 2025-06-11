@@ -246,57 +246,35 @@ class Trainer:
             train_loss, train_acc = self._train_epoch(train_loader, epoch)
 
             # Evaluación
-            if val_loader:
-                val_metrics = self._evaluate(val_loader)
-                val_loss = val_metrics["loss"]
-                val_acc = val_metrics["accuracy"]
-                # val_auc = val_metrics.get("auc_roc", 0.0)
+            val_metrics = self._evaluate(val_loader)
+            val_loss = val_metrics["loss"]
+            val_acc = val_metrics["accuracy"]
+            # val_auc = val_metrics.get("auc_roc", 0.0)
 
-                # Logging
-                self.logger.info(
-                    f"Epoch {epoch}/{self.epochs} - "
-                    f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}, "
-                    f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}",
-                )
-                
-                # Logging a wandb
-                if self.use_wandb:
-                    wandb.log({
-                        "epoch": epoch,
-                        "train/loss": train_loss,
-                        "train/accuracy": train_acc,
-                        "val/loss": val_loss,
-                        "val/accuracy": val_acc,
-                        "learning_rate": self.optimizer.param_groups[0]['lr']
-                    }, step=epoch)
+            # Logging
+            self.logger.info(
+                f"Epoch {epoch}/{self.epochs} - "
+                f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}, "
+                f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}",
+            )
+            
+            # Logging a wandb
+            if self.use_wandb:
+                wandb.log({
+                    "epoch": epoch,
+                    "train_loss": train_loss,
+                    "train_accuracy": train_acc,
+                    "val_loss": val_loss,
+                    "val_accuracy": val_acc,
+                    "learning_rate": self.optimizer.param_groups[0]['lr']
+                }, step=epoch)
 
-                # Actualizar scheduler si es ReduceLROnPlateau
-                if self.scheduler and isinstance(
-                    self.scheduler,
-                    optim.lr_scheduler.ReduceLROnPlateau,
-                ):
-                    self.scheduler.step(val_loss)
-            else:
-                self.logger.info(
-                    f"Epoch {epoch}/{self.epochs} - "
-                    f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}",
-                )
-                
-                # Logging a wandb
-                if self.use_wandb:
-                    wandb.log({
-                        "epoch": epoch,
-                        "train/loss": train_loss,
-                        "train/accuracy": train_acc,
-                        "learning_rate": self.optimizer.param_groups[0]['lr']
-                    }, step=epoch)
-                
-                # Actualizar scheduler normal
-                if self.scheduler and not isinstance(
-                    self.scheduler,
-                    optim.lr_scheduler.ReduceLROnPlateau,
-                ):
-                    self.scheduler.step()
+            # Actualizar scheduler si es ReduceLROnPlateau
+            if self.scheduler and isinstance(
+                self.scheduler,
+                optim.lr_scheduler.ReduceLROnPlateau,
+            ):
+                self.scheduler.step(val_loss)
 
             # Actualizar scheduler normal
             if self.scheduler and not isinstance(
@@ -386,8 +364,8 @@ class Trainer:
             # Logging detallado de batch a wandb
             if self.use_wandb and hasattr(self, 'log_frequency') and batch_idx % self.log_frequency == 0:
                 wandb.log({
-                    "batch/loss": loss.item(),
-                    "batch/accuracy": correct / total,
+                    "batch_loss": loss.item(),
+                    "batch_accuracy": correct / total,
                     "batch": (epoch - 1) * len(train_loader) + batch_idx
                 })
 
