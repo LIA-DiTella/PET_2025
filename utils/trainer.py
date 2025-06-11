@@ -88,6 +88,7 @@ class Trainer:
         """Configura la función de pérdida según la configuración."""
         loss_config = self.config.get("training", {}).get("loss", {})
         loss_name = loss_config.get("name", "cross_entropy")
+        print(f"Using Class Weights: {class_weights}")
 
         if loss_name == "cross_entropy":
             # Opción de pesos para clases desbalanceadas
@@ -122,7 +123,7 @@ class Trainer:
                 self.model.parameters(),
                 lr=lr,
                 weight_decay=weight_decay,
-                betas=(0.9, 0.999),
+                # betas=(0.9, 0.999),
             )
 
         if optim_name.lower() == "sgd":

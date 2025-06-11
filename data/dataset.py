@@ -24,7 +24,7 @@ class PETDataset(Dataset):
         verbose=True,
         limit=None,
         is_3d=False,
-        class_count=3,
+        class_count=2,
     ) -> None:
         """Inicializa el dataset.
 
@@ -293,7 +293,11 @@ class PETDataset(Dataset):
                 for i in range(len(unique_labels)):
                     label_val = unique_labels[i]
                     count = counts[i]
-                    class_name = "CN" if label_val == 0 else "MCI" if label_val == 1 else "AD" if label_val == 2 else f"Clase {label_val}"
+                    if self.class_count == 2:
+                        class_name = "CN" if label_val == 0 else "AD" if label_val == 1 else f"Clase {label_val}"
+                    else:
+                        class_name = "CN" if label_val == 0 else "MCI" if label_val == 1 else "AD" if label_val == 2 else f"Clase {label_val}"
+                        
                     print(f"  - {class_name}: {count} muestras ({count/len(labels)*100:.1f}%)")
 
     def __len__(self) -> int:

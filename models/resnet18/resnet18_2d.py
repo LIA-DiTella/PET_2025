@@ -26,7 +26,7 @@ class ResNet18_2D(nn.Module):
         num_classes=2,
         pretrained=True,
         feature_extract=False,
-        dropout_rate=0.3,
+        dropout_rate=0.6,
     ) -> None:
         """Inicializa el modelo ResNet-18 para clasificación de imágenes 2D.
 
