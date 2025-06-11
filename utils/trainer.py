@@ -63,7 +63,9 @@ class Trainer:
             for target in targets:
                 class_counts[target.item()] += 1
         total_count = np.sum(class_counts)
-        class_weights = torch.tensor(total_count / (self.model.num_classes * class_counts), dtype=torch.float32).to(self.device)
+        class_weights = torch.tensor(
+            total_count / (num_classes * class_counts), dtype=torch.float32
+        ).to(self.device)
 
         print(f"Calculated Class Weights: {class_weights}")
 
@@ -360,7 +362,7 @@ class Trainer:
         if "confusion_matrix" in train_metrics:
             self.logger.info("Matriz de confusión en el conjunto de entrenamiento:")
             self.logger.info(train_metrics["confusion_matrix"])
-            
+
             try:
                 import matplotlib.pyplot as plt
                 import seaborn as sns
@@ -376,7 +378,7 @@ class Trainer:
                 plt.close()
             except ImportError:
                 self.logger.warning("matplotlib y/o seaborn no están disponibles para visualizar la matriz de confusión")
-            
+
         return {
             "best_epoch": best_epoch,
             "best_metric": best_val_metric,
