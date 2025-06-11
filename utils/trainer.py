@@ -310,9 +310,9 @@ class Trainer:
                 patience_counter += 1
 
             # Early stopping
-            if self.patience > 0 and patience_counter >= self.patience:
-                self.logger.info(f"Early stopping activado después de {epoch} epochs")
-                break
+            # if self.patience > 0 and patience_counter >= self.patience:
+            #     self.logger.info(f"Early stopping activado después de {epoch} epochs")
+            #     break
 
         # Tiempo total
         total_time = time.time() - start_time
