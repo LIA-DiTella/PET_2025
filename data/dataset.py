@@ -67,8 +67,10 @@ class PETDataset(Dataset):
             if self.class_count == 2:
                 if label in ["CN", "SMC"]:
                     return 0
-                elif label in ["AD", "MCI", "EMCI", "LMCI"]:
+                elif label in ["AD"]:
                     return 1
+                else:
+                    raise ValueError(f"Etiqueta desconocida: {label}")
             elif self.class_count == 3:
                 if label in ["CN", "SMC"]:
                     return 0
@@ -457,11 +459,11 @@ def get_transforms(config, is_train=True, is_3d=False):
                 transforms.Normalize([0.5], [0.5]),  # Normalizar a [-1, 1]
             ],
         )
-    else:
-        transform = transforms.Compose(
-            [
-                transforms.Normalize([0.5], [0.5]),  # Normalizar a [-1, 1]
-            ],
-        )
+
+    transform = transforms.Compose(
+        [
+            transforms.Normalize([0.5], [0.5]),  # Normalizar a [-1, 1]
+        ],
+    )
 
     return transform
