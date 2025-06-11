@@ -355,6 +355,10 @@ def get_data_loaders(config):
     slice_selection = data_config.get("slice_selection", "uniform")
     num_slices = data_config.get("num_slices", 16)
 
+    train_limit = data_config.get("train_limit", None)
+    val_limit = data_config.get("val_limit", None)
+    test_limit = data_config.get("test_limit", None)
+
     train_dataset = PETDataset(
         data_dir,
         train_csv,
@@ -364,6 +368,7 @@ def get_data_loaders(config):
         mode="train",
         is_3d=is_3d,
         class_count=num_classes,
+        limit=train_limit,
     )
 
     val_dataset = (
@@ -376,6 +381,7 @@ def get_data_loaders(config):
             mode="val",
             is_3d=is_3d,
             class_count=num_classes,
+            limit=val_limit,
         )
         if val_csv
         else None
@@ -391,6 +397,7 @@ def get_data_loaders(config):
             mode="test",
             is_3d=is_3d,
             class_count=num_classes,
+            limit=test_limit,
         )
         if test_csv
         else None
