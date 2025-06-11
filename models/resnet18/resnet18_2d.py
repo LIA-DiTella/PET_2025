@@ -54,12 +54,18 @@ class ResNet18_2D(nn.Module):
 
         # Modificar la capa de clasificación final
         in_features = self.model.fc.in_features
+        # self.model.fc = nn.Sequential(
+        #     nn.Dropout(dropout_rate),
+        #     nn.Linear(in_features, 1024),
+        #     nn.ReLU(),
+        #     nn.Linear(1024, num_classes),
+        #     # nn.Linear(in_features, num_classes),
+        # )
+        self.model.dropout = nn.Dropout(dropout_rate)
         self.model.fc = nn.Sequential(
-            nn.Dropout(dropout_rate),
             nn.Linear(in_features, 1024),
             nn.ReLU(),
             nn.Linear(1024, num_classes),
-            # nn.Linear(in_features, num_classes),
         )
         # self.model.fc = nn.Sequential(
         #     nn.Dropout(dropout_rate),
