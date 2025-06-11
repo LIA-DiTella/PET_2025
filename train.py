@@ -104,7 +104,7 @@ def train_model(config_path, gpu_id=None):
     train_loader, val_loader, test_loader = get_data_loaders(config)
 
     # Crear entrenador
-    trainer = Trainer(model, config, device, exp_dir)
+    trainer = Trainer(model, config, device, exp_dir, train_loader, val_loader, test_loader)
 
     # Entrenar modelo
     training_results = trainer.train(train_loader, val_loader)

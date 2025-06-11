@@ -24,7 +24,7 @@ except ImportError:
 class Trainer:
     """Clase para entrenar modelos de clasificación de imágenes médicas."""
 
-    def __init__(self, model, config, device=None, exp_dir=None) -> None:
+    def __init__(self, model, config, device=None, exp_dir=None, train_loader=None, val_loader=None, test_loader=None):
         """Inicializa el entrenador.
 
         Args:
@@ -54,8 +54,23 @@ class Trainer:
         self.epochs = config.get("training", {}).get("epochs", 100)
         self.patience = config.get("training", {}).get("early_stopping_patience", 10)
 
+        class_weights = None
+
+        loss_config = self.config.get("training", {}).get("loss", {})
+        if (
+            loss_config.get("weighted", True)
+            and loss_config.get("class_weights", None) is None
+        ):
+            # Calcular pesos de clases si no se proporcionan
+            class_counts = np.zeros(self.model.num_classes)
+            for _, targets in train_loader:
+                for target in targets:
+                    class_counts[target.item()] += 1
+            total_count = np.sum(class_counts)
+            class_weights = torch.tensor(total_count / (self.model.num_classes * class_counts), dtype=torch.float32).to(self.device)
+
         # Función de pérdida
-        self.criterion = self._get_loss_function()
+        self.criterion = self._get_loss_function(class_weights=class_weights)
 
         # Optimizador
         self.optimizer = self._get_optimizer()
@@ -69,7 +84,7 @@ class Trainer:
         # Configuración de wandb
         self._setup_wandb()
 
-    def _get_loss_function(self):
+    def _get_loss_function(self, class_weights=None):
         """Configura la función de pérdida según la configuración."""
         loss_config = self.config.get("training", {}).get("loss", {})
         loss_name = loss_config.get("name", "cross_entropy")
@@ -77,8 +92,10 @@ class Trainer:
         if loss_name == "cross_entropy":
             # Opción de pesos para clases desbalanceadas
             if loss_config.get("weighted", False):
-                class_weights = torch.tensor(loss_config.get("class_weights"), device=self.device)
-                return nn.CrossEntropyLoss(weight=class_weights)
+                if loss_config.get("class_weights", None) is not None:
+                    class_weights = loss_config["class_weights"]
+                if class_weights is not None:
+                    return nn.CrossEntropyLoss(weight=class_weights)
             return nn.CrossEntropyLoss()
 
         if loss_name == "focal_loss":
