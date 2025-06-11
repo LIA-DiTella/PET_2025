@@ -70,6 +70,7 @@ class ResNet18_2D(nn.Module):
             torch.Tensor: Logits de salida de forma [batch_size, num_classes]
 
         """
+        print(f"Input shape: {x.shape}")
         if x.dim() == 3:
             # Add 3 channels (copied from the single channel)
             x = torch.stack([x] * 3, dim=1)
@@ -78,6 +79,7 @@ class ResNet18_2D(nn.Module):
             x = x.repeat(1, 3, 1, 1)
         elif x.dim() != 4 or x.size(1) != 3:
             raise ValueError("Input tensor must be of shape [batch_size, 1, H, W] or [batch_size, 3, H, W]")
+        print(f"Modified input shape: {x.shape}")
         return self.model(x)
 
 
