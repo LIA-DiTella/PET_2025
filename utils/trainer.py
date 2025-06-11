@@ -71,7 +71,8 @@ class Trainer:
         
         y = torch.cat([targets for _, targets in train_loader], dim=0)
 
-        class_weights = compute_class_weight("balanced", np.unique(y), y.numpy())
+        class_weights = compute_class_weight("balanced", classes=np.unique(y.numpy()), y=y.numpy())
+        class_weights = torch.tensor(class_weights, dtype=torch.float32).to(self.device)
 
         print(f"Calculated Class Weights: {class_weights}")
 
