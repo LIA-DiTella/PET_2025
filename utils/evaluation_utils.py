@@ -30,7 +30,7 @@ def calculate_metrics(y_true, y_pred, y_score=None):
     # Para problemas binarios
     if y_score is not None and (len(np.unique(y_true)) == 2):
         # ROC AUC
-        metrics["auc_roc"] = roc_auc_score(y_true, y_score)
+        # metrics["auc_roc"] = roc_auc_score(y_true, y_score)
 
         # Calcular sensibilidad y especificidad (asumiendo que la clase positiva es 1)
         tn, fp, fn, tp = cm.ravel()
@@ -38,9 +38,9 @@ def calculate_metrics(y_true, y_pred, y_score=None):
         metrics["specificity"] = tn / (tn + fp) if (tn + fp) > 0 else 0
 
     # Para problemas multiclase
-    elif y_score is not None and (len(np.unique(y_true)) > 2):
-        # ROC AUC multi-clase (one-vs-rest)
-        metrics["auc_roc"] = roc_auc_score(y_true, y_score, multi_class="ovr")
+    # elif y_score is not None and (len(np.unique(y_true)) > 2):
+    #    # ROC AUC multi-clase (one-vs-rest)
+    #    # metrics["auc_roc"] = roc_auc_score(y_true, y_score, multi_class="ovr")
 
     return metrics
 

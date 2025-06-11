@@ -470,18 +470,18 @@ class Trainer:
         metrics["loss"] = total_loss / len(data_loader)
 
         # Añadir ROC-AUC si hay más de una clase
-        if len(np.unique(all_targets)) > 1:
-            from sklearn.metrics import roc_auc_score
-            try:
-                if len(np.unique(all_targets)) == 2:
-                    # Binario: usar probabilidades de la clase positiva
-                    metrics["auc_roc"] = roc_auc_score(all_targets, all_scores[:, 1])
-                else:
-                    # Multiclase: usar average='macro'
-                    metrics["auc_roc"] = roc_auc_score(all_targets, all_scores, multi_class='ovr', average='macro')
-            except Exception as e:
-                self.logger.warning(f"No se pudo calcular ROC-AUC: {e}")
-                metrics["auc_roc"] = 0.0
+        # if len(np.unique(all_targets)) > 1:
+        #     from sklearn.metrics import roc_auc_score
+        #     try:
+        #         if len(np.unique(all_targets)) == 2:
+        #             # Binario: usar probabilidades de la clase positiva
+        #             metrics["auc_roc"] = roc_auc_score(all_targets, all_scores[:, 1])
+        #         else:
+        #             # Multiclase: usar average='macro'
+        #             metrics["auc_roc"] = roc_auc_score(all_targets, all_scores, multi_class='ovr', average='macro')
+        #     except Exception as e:
+        #         self.logger.warning(f"No se pudo calcular ROC-AUC: {e}")
+        #         metrics["auc_roc"] = 0.0
 
         return metrics
 

@@ -334,6 +334,7 @@ def get_data_loaders(config):
     num_classes = len(classes)
     if num_classes not in [2, 3]:
         raise ValueError(f"Número de clases no soportado: {num_classes}. Debe ser 2 o 3.")
+    print(f"Configuración de clases: {classes} ({num_classes} clases)")
     is_3d = data_config.get("dimension", "2d") == "3d"
     batch_size = data_config.get("batch_size", 32)
     num_workers = data_config.get("num_workers", 4)

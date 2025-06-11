@@ -46,11 +46,10 @@ class ResNet18_2D(nn.Module):
         set_parameter_requires_grad(self.model, feature_extract)
 
         # Modificar la primera capa convolucional para aceptar imágenes de 1 canal (PET scans)
-        original_weight = self.model.conv1.weight.data
-        self.model.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        if pretrained:
-            # Inicializar con el promedio de los canales RGB
-            self.model.conv1.weight.data = torch.mean(original_weight, dim=1, keepdim=True)
+        # original_weight = self.model.conv1.weight.data
+        # if pretrained:
+        #    Inicializar con el promedio de los canales RGB
+        #    self.model.conv1.weight.data = torch.mean(original_weight, dim=1, keepdim=True)
 
         # Modificar la capa de clasificación final
         in_features = self.model.fc.in_features
@@ -71,6 +70,14 @@ class ResNet18_2D(nn.Module):
             torch.Tensor: Logits de salida de forma [batch_size, num_classes]
 
         """
+        if x.dim() == 3:
+            # Add 3 channels (copied from the single channel)
+            x = torch.stack([x] * 3, dim=1)
+        elif x.dim() == 4 and x.size(1) == 1:
+            # Add 3 channels (copied from the single channel)
+            x = x.repeat(1, 3, 1, 1)
+        elif x.dim() != 4 or x.size(1) != 3:
+            raise ValueError("Input tensor must be of shape [batch_size, 1, H, W] or [batch_size, 3, H, W]")
         return self.model(x)
 
 
