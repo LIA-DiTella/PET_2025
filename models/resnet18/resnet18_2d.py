@@ -44,7 +44,7 @@ class ResNet18_2D(nn.Module):
 
         # Congelar parámetros si feature_extract=True
         # set_parameter_requires_grad(self.model, feature_extract)
-        set_parameter_requires_grad(self.model)
+        set_parameter_requires_grad(self.model, False)
 
         # Modificar la primera capa convolucional para aceptar imágenes de 1 canal (PET scans)
         # original_weight = self.model.conv1.weight.data
