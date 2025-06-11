@@ -327,6 +327,13 @@ def get_data_loaders(config):
 
     """
     data_config = config.get("data", {})
+    classes = data_config.get("classes", "CN_AD").split("_")
+    for class_name in classes:
+        if class_name not in ["CN", "MCI", "AD", "SMC", "EMCI", "LMCI"]:
+            raise ValueError(f"Clase desconocida: {class_name}. Debe ser CN, MCI, AD, SMC, EMCI o LMCI.")
+    num_classes = len(classes)
+    if num_classes not in [2, 3]:
+        raise ValueError(f"Número de clases no soportado: {num_classes}. Debe ser 2 o 3.")
     is_3d = data_config.get("dimension", "2d") == "3d"
     batch_size = data_config.get("batch_size", 32)
     num_workers = data_config.get("num_workers", 4)
@@ -351,6 +358,7 @@ def get_data_loaders(config):
         num_slices=num_slices,
         mode="train",
         is_3d=is_3d,
+        class_count=num_classes,
     )
 
     val_dataset = (
@@ -362,6 +370,7 @@ def get_data_loaders(config):
             num_slices=1,
             mode="val",
             is_3d=is_3d,
+            class_count=num_classes,
         )
         if val_csv
         else None
@@ -376,6 +385,7 @@ def get_data_loaders(config):
             num_slices=1,
             mode="test",
             is_3d=is_3d,
+            class_count=num_classes,
         )
         if test_csv
         else None
