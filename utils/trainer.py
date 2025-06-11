@@ -20,6 +20,8 @@ except ImportError:
     WANDB_AVAILABLE = False
     print("Warning: wandb no está instalado. El logging de wandb está deshabilitado.")
 
+from sklearn.utils.class_weight import compute_class_weight
+
 
 class Trainer:
     """Clase para entrenar modelos de clasificación de imágenes médicas."""
@@ -58,14 +60,18 @@ class Trainer:
 
         # loss_config = self.config.get("training", {}).get("loss", {})
         # Calcular pesos de clases si no se proporcionan
-        class_counts = np.zeros(num_classes)
-        for _, targets in train_loader:
-            for target in targets:
-                class_counts[target.item()] += 1
-        total_count = np.sum(class_counts)
-        class_weights = torch.tensor(
-            total_count / (num_classes * class_counts), dtype=torch.float32
-        ).to(self.device)
+        # class_counts = np.zeros(num_classes)
+        # for _, targets in train_loader:
+        #     for target in targets:
+        #         class_counts[target.item()] += 1
+        # # total_count = np.sum(class_counts)
+        # class_weights = torch.tensor(
+        #     total_count / (num_classes * class_counts), dtype=torch.float32
+        # ).to(self.device)
+        
+        y = torch.cat([targets for _, targets in train_loader], dim=0)
+
+        class_weights = compute_class_weight("balanced", np.unique(y), y.numpy())
 
         print(f"Calculated Class Weights: {class_weights}")
 
