@@ -54,20 +54,18 @@ class Trainer:
         self.epochs = config.get("training", {}).get("epochs", 100)
         self.patience = config.get("training", {}).get("early_stopping_patience", 10)
 
-        class_weights = None
+        # class_weights = None
 
-        loss_config = self.config.get("training", {}).get("loss", {})
-        if (
-            loss_config.get("weighted", True)
-            and loss_config.get("class_weights", None) is None
-        ):
-            # Calcular pesos de clases si no se proporcionan
-            class_counts = np.zeros(self.model.num_classes)
-            for _, targets in train_loader:
-                for target in targets:
-                    class_counts[target.item()] += 1
-            total_count = np.sum(class_counts)
-            class_weights = torch.tensor(total_count / (self.model.num_classes * class_counts), dtype=torch.float32).to(self.device)
+        # loss_config = self.config.get("training", {}).get("loss", {})
+        # Calcular pesos de clases si no se proporcionan
+        class_counts = np.zeros(self.model.num_classes)
+        for _, targets in train_loader:
+            for target in targets:
+                class_counts[target.item()] += 1
+        total_count = np.sum(class_counts)
+        class_weights = torch.tensor(total_count / (self.model.num_classes * class_counts), dtype=torch.float32).to(self.device)
+
+        print(f"Calculated Class Weights: {class_weights}")
 
         # Función de pérdida
         self.criterion = self._get_loss_function(class_weights=class_weights)
