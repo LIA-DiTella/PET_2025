@@ -444,6 +444,8 @@ def get_transforms(config, is_train=True, is_3d=False):
         transformación compuesta
 
     """
+    return None
+
     aug_config = config.get("augmentation", {})
 
     if is_3d:
@@ -469,10 +471,10 @@ def get_transforms(config, is_train=True, is_3d=False):
             ],
         )
 
-    # transform = transforms.Compose(
-    #     [
-    #         transforms.Normalize([0.5], [0.5]),  # Normalizar a [-1, 1]
-    #     ],
-    # )
+    transform = transforms.Compose(
+        [
+            transforms.Normalize([0.5], [0.5]),  # Normalizar a [-1, 1]
+        ],
+    )
 
     return transform
