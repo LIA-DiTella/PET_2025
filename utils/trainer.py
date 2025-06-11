@@ -349,6 +349,35 @@ class Trainer:
         # Cargar el mejor modelo para evaluación final
         self._load_best_model()
 
+        # Logging final
+        self.logger.info("Entrenamiento finalizado")
+
+        # Confussion matrix on Train set
+        train_metrics = self._evaluate(train_loader)
+        self.logger.info("Métricas de entrenamiento:")
+        for metric_name, value in train_metrics.items():
+            if metric_name != "confusion_matrix":
+                self.logger.info(f"{metric_name}: {value}")
+        if "confusion_matrix" in train_metrics:
+            self.logger.info("Matriz de confusión en el conjunto de entrenamiento:")
+            self.logger.info(train_metrics["confusion_matrix"])
+            
+            try:
+                import matplotlib.pyplot as plt
+                import seaborn as sns
+
+                plt.figure(figsize=(8, 6))
+                sns.heatmap(train_metrics["confusion_matrix"], annot=True, fmt='d', cmap='Blues')
+                plt.title('Matriz de Confusión - Conjunto de Entrenamiento')
+                plt.ylabel('Etiqueta Real')
+                plt.xlabel('Predicción')
+
+                # Guardar y loggear a wandb
+                wandb.log({"train_confusion_matrix": wandb.Image(plt)})
+                plt.close()
+            except ImportError:
+                self.logger.warning("matplotlib y/o seaborn no están disponibles para visualizar la matriz de confusión")
+            
         return {
             "best_epoch": best_epoch,
             "best_metric": best_val_metric,
