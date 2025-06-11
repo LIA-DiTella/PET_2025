@@ -112,6 +112,9 @@ def train_model(config_path, gpu_id=None):
     # Evaluar en conjunto de prueba
     test_metrics = trainer.evaluate(test_loader, save_results=True) if test_loader else None
 
+    # Cerrar wandb
+    trainer.close_wandb()
+
     return {"training": training_results, "evaluation": test_metrics, "exp_dir": exp_dir}
 
 

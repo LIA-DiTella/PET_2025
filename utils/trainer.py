@@ -12,6 +12,14 @@ from utils.config_utils import save_config
 # Importar utilidades
 from utils.evaluation_utils import calculate_metrics, save_results_to_csv
 
+# Importar wandb para logging de experimentos
+try:
+    import wandb
+    WANDB_AVAILABLE = True
+except ImportError:
+    WANDB_AVAILABLE = False
+    print("Warning: wandb no está instalado. El logging de wandb está deshabilitado.")
+
 
 class Trainer:
     """Clase para entrenar modelos de clasificación de imágenes médicas."""
@@ -57,6 +65,9 @@ class Trainer:
 
         # Configuración de logging
         self._setup_logging()
+        
+        # Configuración de wandb
+        self._setup_wandb()
 
     def _get_loss_function(self):
         """Configura la función de pérdida según la configuración."""
@@ -168,6 +179,49 @@ class Trainer:
             file_handler.setFormatter(file_formatter)
             self.logger.addHandler(file_handler)
 
+    def _setup_wandb(self) -> None:
+        """Configura wandb para logging de experimentos."""
+        wandb_config = self.config.get("wandb", {})
+        
+        if not WANDB_AVAILABLE or not wandb_config.get("enabled", False):
+            self.use_wandb = False
+            return
+        
+        self.use_wandb = True
+        
+        # Inicializar wandb
+        wandb.init(
+            project=wandb_config.get("project", "pet-classification"),
+            entity=wandb_config.get("entity", None),
+            name=wandb_config.get("name", None),
+            tags=wandb_config.get("tags", []),
+            notes=wandb_config.get("notes", ""),
+            group=wandb_config.get("group", None),
+            job_type=wandb_config.get("job_type", "train"),
+            config=self.config,
+            dir=self.exp_dir,
+            resume="allow"
+        )
+        
+        # Hacer seguimiento del modelo si está habilitado
+        if wandb_config.get("watch_model", False):
+            wandb.watch(
+                self.model,
+                log="all",
+                log_freq=wandb_config.get("watch_freq", 100)
+            )
+        
+        # Configurar frecuencia de logging
+        self.log_frequency = wandb_config.get("log_frequency", 10)
+        
+        self.logger.info("Wandb configurado correctamente")
+
+    def close_wandb(self):
+        """Cierra la sesión de wandb."""
+        if self.use_wandb:
+            wandb.finish()
+            self.logger.info("Sesión de wandb cerrada")
+
     def train(self, train_loader, val_loader):
         """Entrena el modelo.
 
@@ -204,6 +258,17 @@ class Trainer:
                     f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}, "
                     f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}",
                 )
+                
+                # Logging a wandb
+                if self.use_wandb:
+                    wandb.log({
+                        "epoch": epoch,
+                        "train/loss": train_loss,
+                        "train/accuracy": train_acc,
+                        "val/loss": val_loss,
+                        "val/accuracy": val_acc,
+                        "learning_rate": self.optimizer.param_groups[0]['lr']
+                    }, step=epoch)
 
                 # Actualizar scheduler si es ReduceLROnPlateau
                 if self.scheduler and isinstance(
@@ -216,6 +281,16 @@ class Trainer:
                     f"Epoch {epoch}/{self.epochs} - "
                     f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}",
                 )
+                
+                # Logging a wandb
+                if self.use_wandb:
+                    wandb.log({
+                        "epoch": epoch,
+                        "train/loss": train_loss,
+                        "train/accuracy": train_acc,
+                        "learning_rate": self.optimizer.param_groups[0]['lr']
+                    }, step=epoch)
+                
                 # Actualizar scheduler normal
                 if self.scheduler and not isinstance(
                     self.scheduler,
@@ -308,6 +383,14 @@ class Trainer:
             correct += (pred == target).sum().item()
             total += target.size(0)
 
+            # Logging detallado de batch a wandb
+            if self.use_wandb and hasattr(self, 'log_frequency') and batch_idx % self.log_frequency == 0:
+                wandb.log({
+                    "batch/loss": loss.item(),
+                    "batch/accuracy": correct / total,
+                    "batch": (epoch - 1) * len(train_loader) + batch_idx
+                })
+
             # Actualizar barra de progreso
             pbar.set_postfix({"loss": total_loss / (batch_idx + 1), "acc": correct / total})
 
@@ -353,6 +436,20 @@ class Trainer:
         metrics = calculate_metrics(all_targets, all_predictions, all_scores)
         metrics["loss"] = total_loss / len(data_loader)
 
+        # Añadir ROC-AUC si hay más de una clase
+        if len(np.unique(all_targets)) > 1:
+            from sklearn.metrics import roc_auc_score
+            try:
+                if len(np.unique(all_targets)) == 2:
+                    # Binario: usar probabilidades de la clase positiva
+                    metrics["auc_roc"] = roc_auc_score(all_targets, all_scores[:, 1])
+                else:
+                    # Multiclase: usar average='macro'
+                    metrics["auc_roc"] = roc_auc_score(all_targets, all_scores, multi_class='ovr', average='macro')
+            except Exception as e:
+                self.logger.warning(f"No se pudo calcular ROC-AUC: {e}")
+                metrics["auc_roc"] = 0.0
+
         return metrics
 
     def _load_best_model(self) -> None:
@@ -384,6 +481,34 @@ class Trainer:
         for metric_name, value in metrics.items():
             if metric_name != "confusion_matrix":
                 self.logger.info(f"{metric_name}: {value}")
+
+        # Logging a wandb
+        if self.use_wandb:
+            # Preparar métricas para wandb
+            wandb_metrics = {}
+            for metric_name, value in metrics.items():
+                if metric_name != "confusion_matrix":
+                    wandb_metrics[f"test/{metric_name}"] = value
+            
+            # Logging de la matriz de confusión como imagen si está disponible
+            if "confusion_matrix" in metrics:
+                try:
+                    import matplotlib.pyplot as plt
+                    import seaborn as sns
+                    
+                    plt.figure(figsize=(8, 6))
+                    sns.heatmap(metrics["confusion_matrix"], annot=True, fmt='d', cmap='Blues')
+                    plt.title('Matriz de Confusión - Conjunto de Prueba')
+                    plt.ylabel('Etiqueta Real')
+                    plt.xlabel('Predicción')
+                    
+                    # Guardar y loggear a wandb
+                    wandb_metrics["test/confusion_matrix"] = wandb.Image(plt)
+                    plt.close()
+                except ImportError:
+                    self.logger.warning("matplotlib y/o seaborn no están disponibles para visualizar la matriz de confusión")
+            
+            wandb.log(wandb_metrics)
 
         # Guardar resultados
         if save_results:

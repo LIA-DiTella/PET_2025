@@ -1,22 +1,22 @@
-# Configuración de ejemplo para entrenar ResNet-18 2D en ADNI con CN/AD
+# Configuración de ejemplo para entrenar ResNet-18 2D en ADNI con CN/MCI/AD con logging de wandb
 
 experiment:
   base_dir: './experiments'
-  name: 'baseline'    # nombre opcional del experimento
+  name: 'resnet18_2d_baseline_wandb'    # nombre del experimento
 
 # Configuración de Weights & Biases
 wandb:
   enabled: true
-  project: 'PET'  # Nombre del proyecto en wandb
-  entity: pardo  # Tu usuario de wandb (opcional)
-  name: 'resnet18_2d_adni_cnmciad'  # Nombre específico de este run
-  tags: ['resnet18', '2d', 'adni', 'pet', 'alzheimer']
-  notes: 'Entrenamiento de ResNet-18 2D para clasificación de Alzheimer con imágenes PET'
+  project: 'pet-alzheimer-classification'  # Nombre del proyecto en wandb
+  entity: null  # Tu usuario de wandb (opcional - déjalo null para usar por defecto)
+  name: 'resnet18_2d_baseline'  # Nombre específico de este run
+  tags: ['resnet18', '2d', 'adni', 'pet', 'alzheimer', 'baseline']
+  notes: 'Entrenamiento de ResNet-18 2D para clasificación de Alzheimer con imágenes PET - Experimento baseline'
   group: 'resnet18_2d'  # Grupo para agrupar experimentos relacionados
   job_type: 'train'
   watch_model: true  # Para hacer track de gradientes y parámetros del modelo
-  watch_freq: 100  # Frecuencia de logging de gradientes
-  log_frequency: 10  # Log cada N batches
+  watch_freq: 100  # Frecuencia de logging de gradientes (cada N batches)
+  log_frequency: 10  # Log cada N batches durante entrenamiento
 
 model:
   name: 'resnet18'
@@ -31,8 +31,7 @@ data:
   train_csv: './data/metadata/adni_train.csv'
   val_csv: './data/metadata/adni_val.csv'
   test_csv: './data/metadata/adni_test.csv'
-  # batch_size: 32
-  # batch_size: 16
+  batch_size: 16
   num_workers: 4
   slice_selection: 'uniform'  # 'middle', 'all', 'uniform'
   num_slices: 16              # solo para 'uniform'
@@ -44,7 +43,7 @@ data:
     translate: [0.1, 0.1]
 
 training:
-  epochs: 100
+  epochs: 50
   early_stopping_patience: 10
   
   optimizer:
@@ -61,4 +60,4 @@ training:
   loss:
     name: 'cross_entropy'
     weighted: false
-    class_weights: [1.0, 1.0]  # pesos por clase para dataset desbalanceado
+    class_weights: [1.0, 1.0, 1.0]  # pesos por clase para dataset desbalanceado
