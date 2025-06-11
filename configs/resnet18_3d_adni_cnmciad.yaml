@@ -1,0 +1,40 @@
+# Configuración de ejemplo para entrenar ResNet-18 3D en ADNI con CN/MCI/AD
+
+experiment:
+  base_dir: './experiments'
+  name: 'multiclass'
+
+model:
+  name: 'resnet18'
+  dimension: '3d'
+  in_channels: 8   # Especificar el número de canales de entrada para el modelo
+
+data:
+  dataset_name: 'ADNI'
+  classes: 'CN_MCI_AD'
+  dimension: '3d'
+  data_dir: '/Volumes/Seagate/new_downloads/PET/converted_niftis'
+  train_csv: './data/metadata/adni_train.csv'
+  val_csv: './data/metadata/adni_val.csv'
+  test_csv: './data/metadata/adni_test.csv'
+  batch_size: 8       # Menor batch size para 3D debido a la memoria
+  num_workers: 4
+  
+training:
+  epochs: 100
+  early_stopping_patience: 10
+  
+  optimizer:
+    name: 'adam'
+    lr: 0.0001
+    weight_decay: 0.0001
+  
+  scheduler:
+    name: 'cosine_annealing'
+    t_max: 100
+    eta_min: 0.000001
+  
+  loss:
+    name: 'cross_entropy'
+    weighted: true
+    class_weights: [1.0, 0.5, 1.0]  # Pesos para CN, MCI, AD

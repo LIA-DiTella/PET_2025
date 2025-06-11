@@ -1,0 +1,46 @@
+# Configuración de ejemplo para entrenar InceptionNetV3 2D en ADNI con CN/AD
+
+experiment:
+  base_dir: './experiments'
+  name: 'baseline'
+
+model:
+  name: 'inceptionv3'
+  dimension: '2d'
+  pretrained: true
+
+data:
+  dataset_name: 'ADNI'
+  classes: 'CN_AD'
+  dimension: '2d'
+  data_dir: './data/processed'
+  train_csv: './data/metadata/adni_train.csv'
+  val_csv: './data/metadata/adni_val.csv'
+  test_csv: './data/metadata/adni_test.csv'
+  batch_size: 32
+  num_workers: 4
+  slice_selection: 'middle'
+  
+  augmentation:
+    enabled: true
+    rotate_degrees: 10
+    scale_range: [0.9, 1.1]
+    translate: [0.1, 0.1]
+
+training:
+  epochs: 100
+  early_stopping_patience: 10
+  
+  optimizer:
+    name: 'adamw'
+    lr: 0.0001
+    weight_decay: 0.01
+  
+  scheduler:
+    name: 'cosine_annealing'
+    t_max: 100
+    eta_min: 0.000001
+  
+  loss:
+    name: 'cross_entropy'
+    weighted: false
