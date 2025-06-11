@@ -297,7 +297,7 @@ class PETDataset(Dataset):
                         class_name = "CN" if label_val == 0 else "AD" if label_val == 1 else f"Clase {label_val}"
                     else:
                         class_name = "CN" if label_val == 0 else "MCI" if label_val == 1 else "AD" if label_val == 2 else f"Clase {label_val}"
-                        
+
                     print(f"  - {class_name}: {count} muestras ({count/len(labels)*100:.1f}%)")
 
     def __len__(self) -> int:
@@ -448,12 +448,6 @@ def get_transforms(config, is_train=True, is_3d=False):
 
     if is_3d:
         # Transformaciones 3D
-        if is_train and aug_config.get("enabled", True):
-            # Implementar aumentación 3D personalizada
-            # Esto requiere una implementación más compleja, normalmente usando
-            # bibliotecas especializadas como MONAI o transformaciones personalizadas
-            return None
-        # Para prueba/validación, normalmente solo se hace redimensionamiento/normalización
         return None
 
     # Transformaciones 2D
@@ -475,10 +469,10 @@ def get_transforms(config, is_train=True, is_3d=False):
             ],
         )
 
-    transform = transforms.Compose(
-        [
-            transforms.Normalize([0.5], [0.5]),  # Normalizar a [-1, 1]
-        ],
-    )
+    # transform = transforms.Compose(
+    #     [
+    #         transforms.Normalize([0.5], [0.5]),  # Normalizar a [-1, 1]
+    #     ],
+    # )
 
     return transform
