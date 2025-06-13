@@ -63,7 +63,7 @@ class PETDataset(Dataset):
             # Normalizar label (convertir a mayúsculas y eliminar espacios)
             label = label.upper().strip()
             # Controles normales
-            
+
             if self.class_count == 2:
                 if label in ["CN", "SMC"]:
                     return 0
@@ -252,21 +252,21 @@ class PETDataset(Dataset):
                         # Número de columnas por fila (máximo 4)
                         cols_per_row = min(4, len(slices_data))
                         rows = []
-                        
+
                         # Crear filas
                         for j in range(0, len(slices_data), cols_per_row):
                             # Para cada fila, obtener tantos cortes como sea posible sin exceder el límite
                             available_cols = min(cols_per_row, len(slices_data) - j)
                             row_slices = [image[:, :, j + i] for i in range(available_cols)]
-                            
+
                             # Si no hay suficientes para completar la fila, añadir arrays vacíos
                             while len(row_slices) < cols_per_row:
                                 # Usar arrays de ceros con la misma forma que los otros cortes
                                 row_slices.append(np.zeros_like(row_slices[0]))
-                            
+
                             # Concatenar horizontalmente para formar la fila
                             rows.append(np.concatenate(row_slices, axis=1))
-                        
+
                         # Concatenar verticalmente todas las filas
                         image = np.concatenate(rows, axis=0)
 
@@ -305,17 +305,31 @@ class PETDataset(Dataset):
 
     def __getitem__(self, idx):
         img, label = self.samples[idx]
+        print(type(img), img.shape, label)
 
         if not self.is_3d:
             # Añadir dimensión de canal para 2D (C, H, W)
             img = img[np.newaxis, :, :]  # Añadir dimensión de canal (1, H, W)
+
+        print(f"Imagen {idx}: forma {img.shape}, etiqueta {label}")
 
         # Convertir a tensor de PyTorch
         # img = torch.from_numpy(img).float()
 
         # Aplicar transformaciones si existen
         if self.transform:
-            img = self.transform(img)
+            # img = self.transform(img)
+            img = transforms.functional.to_tensor(img)  # Convertir a tensor
+            # transforms.Resize(256),
+            # transforms.CenterCrop(224),
+            # transforms.ToTensor(),
+            # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+
+            img = transforms.functional.resize(img, (256, 256))  # Redimensionar a 256x256
+            img = transforms.functional.center_crop(img, (224, 224))  # Recortar al centro a 224x224
+            img = transforms.functional.normalize(img, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalizar            
+
+        print(img.shape, label)
 
         return img, label
 
@@ -452,48 +466,8 @@ def get_transforms(config, is_train=True, is_3d=False):
 
     """
 
-    return transforms.Compose(
-        [
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ]
-    )
-
-    aug_config = config.get("augmentation", {})
-
-    if is_3d:
-        # Transformaciones 3D
-        return None
-
-    # Transformaciones 2D
-    if is_train and aug_config.get("enabled", True):
-        # Cantidad de aumentación
-        rotate_degrees = aug_config.get("rotate_degrees", 10)
-        scale_range = aug_config.get("scale_range", (0.9, 1.1))
-        translate = aug_config.get("translate", (0.1, 0.1))
-
-        transform = transforms.Compose(
-            [
-                transforms.RandomAffine(
-                    degrees=rotate_degrees,
-                    translate=translate,
-                    scale=scale_range,
-                ),
-                transforms.RandomHorizontalFlip(),
-                transforms.Normalize([0.5], [0.5]),  # Normalizar a [-1, 1]
-            ],
-        )
-
-    # transform = transforms.Compose(
-    #     [
-    #         transforms.Normalize([0.5], [0.5]),  # Normalizar a [-1, 1]
-    #     ],
-    # )
     transform = transforms.Compose(
         [
-            transforms.ToTensor(),
             transforms.Resize(256),
             transforms.CenterCrop(224),
             transforms.ToTensor(),
