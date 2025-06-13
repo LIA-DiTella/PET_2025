@@ -268,8 +268,10 @@ class Trainer:
 
         for epoch in range(1, self.epochs + 1):
             # Entrenamiento
+            self.model.train()
             train_loss, train_acc = self._train_epoch(train_loader, epoch)
 
+            self.model.eval()
             # Evaluación
             val_metrics = self._evaluate(val_loader)
             val_loss = val_metrics["loss"]
@@ -361,6 +363,7 @@ class Trainer:
         self.logger.info("Entrenamiento finalizado")
 
         # Confussion matrix on Train set
+        self.model.eval()
         train_metrics = self._evaluate(train_loader)
         self.logger.info("Métricas de entrenamiento:")
         for metric_name, value in train_metrics.items():
@@ -405,14 +408,16 @@ class Trainer:
 
             # Forward pass
             self.optimizer.zero_grad()
-            if hasattr(self.model, "module") and hasattr(self.model.module, "aux_logits"):
-                output, aux_output = self.model(data)
-                loss1 = self.criterion(output, target)
-                loss2 = self.criterion(aux_output, target)
-                loss = loss1 + 0.4 * loss2  # Ponderación para la salida auxiliar
-            else:
-                output = self.model(data)
-                loss = self.criterion(output, target)
+            
+            # if hasattr(self.model, "module") and hasattr(self.model.module, "aux_logits"):
+            #     output, aux_output = self.model(data)
+            #     loss1 = self.criterion(output, target)
+            #     loss2 = self.criterion(aux_output, target)
+            #     loss = loss1 + 0.4 * loss2  # Ponderación para la salida auxiliar
+            # else:
+
+            output = self.model(data)
+            loss = self.criterion(output, target)
 
             # Backward pass
             loss.backward()
@@ -461,7 +466,8 @@ class Trainer:
                 total_loss += loss.item()
 
                 # Guardar predicciones
-                scores = torch.softmax(output, dim=1)
+                # scores = torch.softmax(output, dim=1)
+                scores = output  # Asumiendo que output ya son logits
                 predictions = torch.argmax(output, dim=1)
 
                 all_targets.extend(target.cpu().numpy())
