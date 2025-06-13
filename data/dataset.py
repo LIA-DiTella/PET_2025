@@ -306,12 +306,14 @@ class PETDataset(Dataset):
     def __getitem__(self, idx):
         img, label = self.samples[idx]
         print(type(img), img.shape, label)
+        # <class 'numpy.ndarray'> (512, 512) 1
 
         if not self.is_3d:
             # Añadir dimensión de canal para 2D (C, H, W)
             img = img[np.newaxis, :, :]  # Añadir dimensión de canal (1, H, W)
 
         print(f"Imagen {idx}: forma {img.shape}, etiqueta {label}")
+        # Imagen 50: forma (1, 512, 512), etiqueta 1
 
         # Aplicar transformaciones si existen
         if self.transform:
@@ -322,11 +324,12 @@ class PETDataset(Dataset):
             # transforms.ToTensor(),
             # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 
-            img = transforms.functional.resize(img, (256, 256))  # Redimensionar a 256x256
-            img = transforms.functional.center_crop(img, (224, 224))  # Recortar al centro a 224x224
+            img = transforms.functional.resize(img, (1, 256, 256))
+            img = transforms.functional.center_crop(img, (1, 224, 224))
             img = transforms.functional.normalize(img, mean=np.mean([0.485, 0.456, 0.406]), std=np.mean([0.229, 0.224, 0.225]))  # Normalizar
 
         print(img.shape, label)
+        # torch.Size([512, 224, 224]) 1
 
         return img, label
 
