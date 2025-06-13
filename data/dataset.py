@@ -311,7 +311,7 @@ class PETDataset(Dataset):
             img = img[np.newaxis, :, :]  # Añadir dimensión de canal (1, H, W)
 
         # Convertir a tensor de PyTorch
-        img = torch.from_numpy(img).float()
+        # img = torch.from_numpy(img).float()
 
         # Aplicar transformaciones si existen
         if self.transform:
@@ -493,7 +493,7 @@ def get_transforms(config, is_train=True, is_3d=False):
     # )
     transform = transforms.Compose(
         [
-            transforms.ToPILImage(),
+            transforms.ToTensor(),
             transforms.Resize(256),
             transforms.CenterCrop(224),
             transforms.ToTensor(),
