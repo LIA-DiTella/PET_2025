@@ -307,8 +307,9 @@ class PETDataset(Dataset):
         img, label = self.samples[idx]
 
         # Convertir a tensor
-        img_tensor = torch.tensor(img, dtype=torch.float32)
-
+        # img_tensor = torch.tensor(img, dtype=torch.float32)
+        img_tensor = torch.from_numpy(img).float()
+        
         if not self.is_3d:
             # Añadir dimensión de canal para 2D (C, H, W)
             img_tensor = img_tensor.unsqueeze(0)
