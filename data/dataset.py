@@ -306,17 +306,12 @@ class PETDataset(Dataset):
     def __getitem__(self, idx):
         img, label = self.samples[idx]
 
-        # Convertir a tensor
-        # img_tensor = torch.tensor(img, dtype=torch.float32)
-        # img_tensor = torch.from_numpy(img).float()
-
         if not self.is_3d:
             # Añadir dimensión de canal para 2D (C, H, W)
-            # img = img.unsqueeze(0)
-            # img = img.unsqueeze(0)
-            #       ^^^^^^^^^^^^^
-            # AttributeError: 'numpy.ndarray' object has no attribute 'unsqueeze'. Did you mean: 'squeeze'?
             img = img[np.newaxis, :, :]  # Añadir dimensión de canal (1, H, W)
+
+        # Convertir a tensor de PyTorch
+        img = torch.from_numpy(img).float()
 
         # Aplicar transformaciones si existen
         if self.transform:
@@ -498,6 +493,7 @@ def get_transforms(config, is_train=True, is_3d=False):
     # )
     transform = transforms.Compose(
         [
+            transforms.ToPILImage(),
             transforms.Resize(256),
             transforms.CenterCrop(224),
             transforms.ToTensor(),
