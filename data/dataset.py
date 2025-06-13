@@ -313,9 +313,6 @@ class PETDataset(Dataset):
 
         print(f"Imagen {idx}: forma {img.shape}, etiqueta {label}")
 
-        # Convertir a tensor de PyTorch
-        # img = torch.from_numpy(img).float()
-
         # Aplicar transformaciones si existen
         if self.transform:
             # img = self.transform(img)
@@ -327,7 +324,7 @@ class PETDataset(Dataset):
 
             img = transforms.functional.resize(img, (256, 256))  # Redimensionar a 256x256
             img = transforms.functional.center_crop(img, (224, 224))  # Recortar al centro a 224x224
-            img = transforms.functional.normalize(img, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalizar            
+            img = transforms.functional.normalize(img, mean=np.mean([0.485, 0.456, 0.406]), std=np.mean([0.229, 0.224, 0.225]))  # Normalizar
 
         print(img.shape, label)
 
