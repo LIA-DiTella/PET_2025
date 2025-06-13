@@ -312,7 +312,11 @@ class PETDataset(Dataset):
 
         if not self.is_3d:
             # Añadir dimensión de canal para 2D (C, H, W)
-            img = img.unsqueeze(0)
+            # img = img.unsqueeze(0)
+            # img = img.unsqueeze(0)
+            #       ^^^^^^^^^^^^^
+            # AttributeError: 'numpy.ndarray' object has no attribute 'unsqueeze'. Did you mean: 'squeeze'?
+            img = img[np.newaxis, :, :]  # Añadir dimensión de canal (1, H, W)
 
         # Aplicar transformaciones si existen
         if self.transform:
