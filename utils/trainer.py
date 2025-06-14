@@ -20,6 +20,7 @@ except ImportError:
     WANDB_AVAILABLE = False
     print("Warning: wandb no está instalado. El logging de wandb está deshabilitado.")
 
+from sklearn.metrics import roc_auc_score
 from sklearn.utils.class_weight import compute_class_weight
 
 
@@ -270,31 +271,36 @@ class Trainer:
             # Entrenamiento
             self.model.train()
             train_loss, train_acc = self._train_epoch(train_loader, epoch)
+            train_metrics = self._evaluate(train_loader)
+            # train_loss = train_metrics["loss"]
+            # train_acc = train_metrics["accuracy"]
+            train_auc = train_metrics.get("auc_roc", 0.0)
+
 
             self.model.eval()
             # Evaluación
             val_metrics = self._evaluate(val_loader)
             val_loss = val_metrics["loss"]
             val_acc = val_metrics["accuracy"]
-            # val_auc = val_metrics.get("auc_roc", 0.0)
+            val_auc = val_metrics.get("auc_roc", 0.0)
 
             # Logging
-            self.logger.info(
-                f"Epoch {epoch}/{self.epochs} - "
-                f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}, "
-                f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}",
-            )
+            # self.logger.info(
+            #     f"Epoch {epoch}/{self.epochs} - "
+            #     f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}, "
+            #     f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}",
+            # )
 
-            self.logger.info(
-                str({
-                    "epoch": epoch,
-                    "train_loss": train_loss,
-                    "train_accuracy": train_acc,
-                    "val_loss": val_loss,
-                    "val_accuracy": val_acc,
-                    "learning_rate": self.optimizer.param_groups[0]["lr"],
-                })
-            )
+            # self.logger.info(
+            #     str({
+            #         "epoch": epoch,
+            #         "train_loss": train_loss,
+            #         "train_accuracy": train_acc,
+            #         "val_loss": val_loss,
+            #         "val_accuracy": val_acc,
+            #         "learning_rate": self.optimizer.param_groups[0]["lr"],
+            #     })
+            # )
 
             # Logging a wandb
             wandb.log({
@@ -303,7 +309,11 @@ class Trainer:
                 "train_accuracy": train_acc,
                 "val_loss": val_loss,
                 "val_accuracy": val_acc,
-                "learning_rate": self.optimizer.param_groups[0]['lr']
+                "learning_rate": self.optimizer.param_groups[0]['lr'],
+                "train_auc_roc": train_auc,
+                "val_auc_roc": val_auc,
+                "train_metrics": train_metrics,
+                "val_metrics": val_metrics,
             }, step=epoch)
 
             # Actualizar scheduler si es ReduceLROnPlateau
@@ -335,7 +345,8 @@ class Trainer:
                         "epoch": epoch,
                         "model_state_dict": self.model.state_dict(),
                         "optimizer_state_dict": self.optimizer.state_dict(),
-                        "metrics": val_metrics,
+                        "val_metrics": val_metrics,
+                        "train_metrics": train_metrics,
                     },
                     checkpoint_path,
                 )
@@ -484,18 +495,17 @@ class Trainer:
         metrics["loss"] = total_loss / len(data_loader)
 
         # Añadir ROC-AUC si hay más de una clase
-        # if len(np.unique(all_targets)) > 1:
-        #     from sklearn.metrics import roc_auc_score
-        #     try:
-        #         if len(np.unique(all_targets)) == 2:
-        #             # Binario: usar probabilidades de la clase positiva
-        #             metrics["auc_roc"] = roc_auc_score(all_targets, all_scores[:, 1])
-        #         else:
-        #             # Multiclase: usar average='macro'
-        #             metrics["auc_roc"] = roc_auc_score(all_targets, all_scores, multi_class='ovr', average='macro')
-        #     except Exception as e:
-        #         self.logger.warning(f"No se pudo calcular ROC-AUC: {e}")
-        #         metrics["auc_roc"] = 0.0
+        if len(np.unique(all_targets)) > 1:
+            try:
+                if len(np.unique(all_targets)) == 2:
+                    # Binario: usar probabilidades de la clase positiva
+                    metrics["auc_roc"] = roc_auc_score(all_targets, all_scores[:, 1])
+                # else:
+                    # Multiclase: usar average='macro'
+                    # metrics["auc_roc"] = roc_auc_score(all_targets, all_scores, multi_class='ovr', average='macro')
+            except Exception as e:
+                self.logger.warning(f"No se pudo calcular ROC-AUC: {e}")
+                metrics["auc_roc"] = 0.0
 
         return metrics
 
