@@ -3,11 +3,34 @@ import os
 import nibabel as nib
 import numpy as np
 import pandas as pd
-import torch
+
+# import torch
 from skimage.transform import resize
+from sklearn.utils import resample
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from tqdm import tqdm
+
+
+def make_resample(_df, column):
+
+    dfs_r = {}
+    dfs_c = {}
+    bigger = 0
+    ignore = ""
+    for c in _df[column].unique():
+        dfs_c[c] = _df[_df[column] == c]
+        if dfs_c[c].shape[0] > bigger:
+            bigger = dfs_c[c].shape[0]
+            ignore = c
+
+    for c in dfs_c:
+        if c == ignore:
+            continue
+        dfs_r[c] = resample(
+            dfs_c[c], replace=True, n_samples=bigger - dfs_c[c].shape[0], random_state=0
+        )
+    return pd.concat([dfs_r[c] for c in dfs_r] + [_df])
 
 
 class PETDataset(Dataset):
@@ -49,7 +72,11 @@ class PETDataset(Dataset):
         self.is_3d = is_3d
 
         # Cargar metadatos
-        self.metadata = pd.read_csv(csv_path)
+        df = pd.read_csv(csv_path)
+
+        # upsample minority class
+        self.metadata = resample(df, "Group") if mode == "train" else df  # Resample para entrenamiento si es necesario
+
         if self.verbose:
             print(f"CSV cargado. Filas: {len(self.metadata)}")
 
