@@ -75,7 +75,9 @@ class PETDataset(Dataset):
         df = pd.read_csv(csv_path)
 
         # upsample minority class
-        self.metadata = resample(df, "Group") if mode == "train" else df  # Resample para entrenamiento si es necesario
+        self.metadata = (
+            make_resample(df, "Group") if mode == "train" else df
+        )  # Resample para entrenamiento si es necesario
 
         if self.verbose:
             print(f"CSV cargado. Filas: {len(self.metadata)}")
