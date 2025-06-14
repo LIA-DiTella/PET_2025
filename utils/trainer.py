@@ -466,7 +466,7 @@ class Trainer:
                 total_loss += loss.item()
 
                 # Guardar predicciones
-                # scores = torch.softmax(output, dim=1)
+                scores = torch.softmax(output, dim=1)
                 scores = output  # Asumiendo que output ya son logits
                 predictions = torch.argmax(output, dim=1)
 
