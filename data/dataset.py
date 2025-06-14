@@ -333,7 +333,7 @@ class PETDataset(Dataset):
             # img = img[np.newaxis, :, :]  # Añadir dimensión de canal (1, H, W
             # print(f"Imagen con canal añadido: forma {img.shape}, etiqueta {label}")
 
-        print(img.shape, label)
+        # print(img.shape, label)
         # torch.Size([512, 224, 224]) 1
 
         return img, label
