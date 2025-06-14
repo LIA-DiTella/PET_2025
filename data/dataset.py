@@ -14,23 +14,29 @@ from tqdm import tqdm
 
 def make_resample(_df, column):
 
-    dfs_r = {}
-    dfs_c = {}
-    bigger = 0
-    ignore = ""
-    for c in _df[column].unique():
-        dfs_c[c] = _df[_df[column] == c]
-        if dfs_c[c].shape[0] > bigger:
-            bigger = dfs_c[c].shape[0]
-            ignore = c
+    ad = _df[_df[column] == "AD"]
+    cn = _df[_df[column] == "CN"]
+    smc = _df[_df[column] == "SMC"]
+    mci = _df[_df[column] == "MCI"]
+    emci = _df[_df[column] == "EMCI"]
+    lmci = _df[_df[column] == "LMCI"]
 
-    for c in dfs_c:
-        if c == ignore:
-            continue
-        dfs_r[c] = resample(
-            dfs_c[c], replace=True, n_samples=bigger - dfs_c[c].shape[0], random_state=0
-        )
-    return pd.concat([dfs_r[c] for c in dfs_r] + [_df])
+    # Upsample minority class (AD)
+    ad_count = len(ad)
+    cn_count = len(cn) + len(smc)
+
+    while ad_count < cn_count:
+        ad = pd.concat([ad, resample(ad, replace=True, n_samples=cn_count - ad_count, random_state=42)])
+        ad_count = len(ad)
+
+    # Concatenar de nuevo
+    # df_resampled = pd.concat([ad, cn, smc], ignore_index=True)
+    df_resampled = pd.concat([ad, cn, smc, mci, emci, lmci], ignore_index=True)
+
+    # Mezclar filas
+    df_resampled = df_resampled.sample(frac=1, random_state=42).reset_index(drop=True)
+
+    return df_resampled
 
 
 class PETDataset(Dataset):
