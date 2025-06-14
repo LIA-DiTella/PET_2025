@@ -54,6 +54,7 @@ class PETDataset(Dataset):
         limit=None,
         is_3d=False,
         class_count=2,
+        config=None,
     ) -> None:
         """Inicializa el dataset.
 
@@ -81,8 +82,9 @@ class PETDataset(Dataset):
         df = pd.read_csv(csv_path)
 
         # upsample minority class
+
         self.metadata = (
-            make_resample(df, "Group") if mode == "train" else df
+            make_resample(df, "Group") if (mode == "train" and config and config.get("data", {}).get("resample", False)) else df
         )  # Resample para entrenamiento si es necesario
 
         if self.verbose:
@@ -423,6 +425,7 @@ def get_data_loaders(config):
         is_3d=is_3d,
         class_count=num_classes,
         limit=train_limit,
+        config=config,
     )
 
     val_dataset = (
