@@ -326,7 +326,7 @@ class PETDataset(Dataset):
 
             img = transforms.functional.resize(img, (256, 256))
             print(f"Imagen transformada: forma {img.shape}, etiqueta {label}")
-            img = transforms.functional.center_crop(img, (1, 224, 224))
+            img = transforms.functional.center_crop(img, (224, 224))
             print(f"Imagen centrada: forma {img.shape}, etiqueta {label}")
             img = transforms.functional.normalize(img, mean=np.mean([0.485, 0.456, 0.406]), std=np.mean([0.229, 0.224, 0.225]))  # Normalizar
             print(f"Imagen normalizada: forma {img.shape}, etiqueta {label}")
