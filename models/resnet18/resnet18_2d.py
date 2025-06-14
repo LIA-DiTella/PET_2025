@@ -95,7 +95,7 @@ class ResNet18_2D(nn.Module):
             raise ValueError("Input tensor must be of shape [batch_size, 1, H, W] or [batch_size, 3, H, W]")
         # print(f"Modified input shape: {x.shape}")
         out = self.model(x)
-        print(f"Output shape: {out.shape}")
+        # print(f"Output shape: {out.shape}")
         return out
 
 
