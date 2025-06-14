@@ -434,7 +434,7 @@ def get_data_loaders(config):
     val_loader = (
         DataLoader(
             val_dataset,
-            batch_size=batch_size,
+            batch_size=1,
             shuffle=False,
             num_workers=num_workers,
             pin_memory=True,
@@ -446,7 +446,7 @@ def get_data_loaders(config):
     test_loader = (
         DataLoader(
             test_dataset,
-            batch_size=batch_size,
+            batch_size=1,
             shuffle=False,
             num_workers=num_workers,
             pin_memory=True,
