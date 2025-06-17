@@ -455,14 +455,16 @@ class Trainer:
             print(f"Target shape before conversion: {target.shape}")
             
             # Convertir target de one-hot a índices si es necesario para la función de pérdida
-            if target.dim() > 1 and target.shape[1] > 1:
-                # Si target es one-hot, convertir a índices para CrossEntropyLoss
-                target_for_loss = torch.argmax(target, dim=1)
-                print(f"Target converted to indices, shape: {target_for_loss.shape}")
-            else:
-                # Si target ya son índices, usar directamente
-                target_for_loss = target
-                print(f"Target used as is, shape: {target_for_loss.shape}")
+            # if target.dim() > 1 and target.shape[1] > 1:
+            #     # Si target es one-hot, convertir a índices para CrossEntropyLoss
+            #     target_for_loss = torch.argmax(target, dim=1)
+            #     print(f"Target converted to indices, shape: {target_for_loss.shape}")
+            # else:
+            #     # Si target ya son índices, usar directamente
+            #     target_for_loss = target
+            #     print(f"Target used as is, shape: {target_for_loss.shape}")
+
+            target_for_loss = target
                 
             print(f"Loss function type: {type(self.criterion)}")
             loss = self.criterion(output, target_for_loss)
