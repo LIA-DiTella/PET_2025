@@ -457,8 +457,9 @@ class Trainer:
             # Estadísticas
             total_loss += loss.item()
             pred = output.argmax(dim=1)
-            correct += (pred == target).sum().item()
-            total += target.size(0)
+            true = target.argmax(dim=1) if target.dim() > 1 else target  # Manejar si target es one-hot
+            correct += (pred == true).sum().item()
+            total += true.size(0)
 
             # Logging detallado de batch a wandb
             # if self.use_wandb and hasattr(self, 'log_frequency') and batch_idx % self.log_frequency == 0:
