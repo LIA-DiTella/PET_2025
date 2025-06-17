@@ -373,6 +373,7 @@ class PETDataset(Dataset):
         # print(img.shape, label)
         # torch.Size([512, 224, 224]) 1
 
+        print(img.shape)
         return img, label
 
 
