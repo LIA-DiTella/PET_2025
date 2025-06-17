@@ -44,7 +44,7 @@ class ResNet18_2D(nn.Module):
 
         # Congelar parámetros si feature_extract=True
         # set_parameter_requires_grad(self.model, feature_extract)
-        set_parameter_requires_grad(self.model, feature_extract=False)
+        set_parameter_requires_grad(self.model, feature_extract=True)
 
         # Modificar la primera capa convolucional para aceptar imágenes de 1 canal (PET scans)
         # original_weight = self.model.conv1.weight.data
@@ -65,7 +65,8 @@ class ResNet18_2D(nn.Module):
         self.model.fc = nn.Sequential(
             nn.Dropout(dropout_rate),
             nn.Linear(in_features, 1024),
-            nn.LeakyReLU(negative_slope=0.01, inplace=True),
+            # nn.LeakyReLU(negative_slope=0.01, inplace=True),
+            nn.ReLu(),
             nn.Dropout(dropout_rate),
             nn.Linear(1024, num_classes),
             # nn.Softmax(dim=0)  # Asegurar salida de probabilidades
