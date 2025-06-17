@@ -448,7 +448,16 @@ class Trainer:
             # else:
 
             output = self.model(data)
-            loss = self.criterion(output, target)
+            
+            # Convertir target de one-hot a índices si es necesario para la función de pérdida
+            if target.dim() > 1 and target.shape[1] > 1:
+                # Si target es one-hot, convertir a índices para CrossEntropyLoss
+                target_for_loss = torch.argmax(target, dim=1)
+            else:
+                # Si target ya son índices, usar directamente
+                target_for_loss = target
+                
+            loss = self.criterion(output, target_for_loss)
 
             # Backward pass
             loss.backward()
@@ -493,8 +502,16 @@ class Trainer:
                 # Forward pass
                 output = self.model(data)
 
+                # Convertir target de one-hot a índices si es necesario para la función de pérdida
+                if target.dim() > 1 and target.shape[1] > 1:
+                    # Si target es one-hot, convertir a índices para CrossEntropyLoss
+                    target_for_loss = torch.argmax(target, dim=1)
+                else:
+                    # Si target ya son índices, usar directamente
+                    target_for_loss = target
+
                 # Calcular pérdida
-                loss = self.criterion(output, target)
+                loss = self.criterion(output, target_for_loss)
                 total_loss += loss.item()
 
                 # Guardar predicciones
@@ -502,7 +519,15 @@ class Trainer:
                 scores = output  # Asumiendo que output ya son logits
                 predictions = torch.argmax(output, dim=1)
 
-                all_targets.extend(target.cpu().numpy())
+                # Convertir targets de one-hot a índices de clase si es necesario
+                if target.dim() > 1 and target.shape[1] > 1:
+                    # Si target es one-hot (batch_size, num_classes), convertir a índices
+                    target_indices = torch.argmax(target, dim=1)
+                else:
+                    # Si target ya son índices de clase, usar directamente
+                    target_indices = target
+
+                all_targets.extend(target_indices.cpu().numpy())
                 all_predictions.extend(predictions.cpu().numpy())
                 all_scores.extend(scores.cpu().numpy())
 
