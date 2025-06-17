@@ -107,6 +107,14 @@ class Trainer:
                 return nn.CrossEntropyLoss(weight=class_weights)
             return nn.CrossEntropyLoss()
 
+        if loss_name == "BCELoss":
+            if loss_config.get("weighted", False):
+                if class_weights is None:
+                    if loss_config.get("class_weights", None) is not None:
+                        class_weights = torch.Tensor(loss_config["class_weights"])
+                return nn.BCELoss(pos_weight=class_weights)
+            return nn.BCELoss()
+
         if loss_name == "focal_loss":
             from kornia.losses import FocalLoss
 
@@ -276,7 +284,6 @@ class Trainer:
             # train_acc = train_metrics["accuracy"]
             train_auc = train_metrics.get("auc_roc", 0.0)
 
-
             self.model.eval()
             # Evaluación
             val_metrics = self._evaluate(val_loader)
@@ -419,7 +426,7 @@ class Trainer:
 
             # Forward pass
             self.optimizer.zero_grad()
-            
+
             # if hasattr(self.model, "module") and hasattr(self.model.module, "aux_logits"):
             #     output, aux_output = self.model(data)
             #     loss1 = self.criterion(output, target)
@@ -501,8 +508,8 @@ class Trainer:
                     # Binario: usar probabilidades de la clase positiva
                     metrics["auc_roc"] = roc_auc_score(all_targets, all_scores[:, 1])
                 # else:
-                    # Multiclase: usar average='macro'
-                    # metrics["auc_roc"] = roc_auc_score(all_targets, all_scores, multi_class='ovr', average='macro')
+                # Multiclase: usar average='macro'
+                # metrics["auc_roc"] = roc_auc_score(all_targets, all_scores, multi_class='ovr', average='macro')
             except Exception as e:
                 self.logger.warning(f"No se pudo calcular ROC-AUC: {e}")
                 metrics["auc_roc"] = 0.0
