@@ -69,7 +69,7 @@ class Trainer:
         # class_weights = torch.tensor(
         #     total_count / (num_classes * class_counts), dtype=torch.float32
         # ).to(self.device)
-        
+
         y = torch.cat([targets for _, targets in train_loader], dim=0)
 
         class_weights = compute_class_weight("balanced", classes=np.unique(y.numpy()), y=y.numpy())
@@ -101,10 +101,10 @@ class Trainer:
         if loss_name == "cross_entropy":
             # Opción de pesos para clases desbalanceadas
             if loss_config.get("weighted", False):
-                if loss_config.get("class_weights", None) is not None:
-                    class_weights = loss_config["class_weights"]
-                if class_weights is not None:
-                    return nn.CrossEntropyLoss(weight=class_weights)
+                if class_weights is None:
+                    if loss_config.get("class_weights", None) is not None:
+                        class_weights = torch.Tensor(loss_config["class_weights"])
+                return nn.CrossEntropyLoss(weight=class_weights)
             return nn.CrossEntropyLoss()
 
         if loss_name == "focal_loss":
