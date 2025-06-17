@@ -376,6 +376,9 @@ class PETDataset(Dataset):
         # convert to [3, 224, 224]
             
         # print(img.shape)
+        ohe_label = np.zeros(self.class_count, dtype=np.float32)
+        ohe_label[label] = 1.0
+        label = ohe_label
 
         return img, label
 
