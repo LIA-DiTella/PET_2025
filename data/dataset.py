@@ -365,18 +365,17 @@ class PETDataset(Dataset):
             # print(f"Imagen transformada: forma {img.shape}, etiqueta {label}")
             img = transforms.functional.center_crop(img, (224, 224))
             # print(f"Imagen centrada: forma {img.shape}, etiqueta {label}")
-            img = transforms.functional.normalize(img, mean=np.mean([0.485, 0.456, 0.406]), std=np.mean([0.229, 0.224, 0.225]))  # Normalizar
+            # img = transforms.functional.normalize(img, mean=np.mean([0.485, 0.456, 0.406]), std=np.mean([0.229, 0.224, 0.225]))  # Normalizar
+            img = img.repeat(3, 1, 1)
+            img = transforms.functional.normalize(img, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalizar
             # print(f"Imagen normalizada: forma {img.shape}, etiqueta {label}")
             # img = img[np.newaxis, :, :]  # Añadir dimensión de canal (1, H, W
             # print(f"Imagen con canal añadido: forma {img.shape}, etiqueta {label}")
 
         # torch.Size([1, 224, 224])
         # convert to [3, 224, 224]
-
-        if not self.is_3d:
-            # Convertir a 3 canales (C, H, W) para compatibilidad con modelos preentrenados
-            img = img.repeat(3, 1, 1)
-        print(img.shape)
+            
+        # print(img.shape)
 
         return img, label
 
