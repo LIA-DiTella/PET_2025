@@ -73,10 +73,19 @@ class Trainer:
         for _, targets in train_loader:
             print(targets.shape)
             break
+        # torch.Size([16, 2])
 
         y = torch.cat([targets for _, targets in train_loader], dim=0)
+        y = y.view(-1)  # Asegurarse de que sea un vector 1D
+        print(f"Shape of y: {y.shape}")
+        print(f"Unique classes in y: {np.unique(y.numpy())}")
 
-        class_weights = compute_class_weight("balanced", classes=np.unique(y.numpy()), y=y.numpy())
+        # class_weights = compute_class_weight("balanced", classes=np.unique(y.numpy()), y=y.numpy())
+        class_weights = compute_class_weight(
+            class_weight="balanced",
+            classes=np.unique(y.numpy()),
+            y=y.numpy(),
+        )
         class_weights = torch.tensor(class_weights, dtype=torch.float32).to(self.device)
 
         print(f"Calculated Class Weights: {class_weights}")
