@@ -44,7 +44,7 @@ class ResNet18_2D(nn.Module):
 
         # Congelar parámetros si feature_extract=True
         # set_parameter_requires_grad(self.model, feature_extract)
-        set_parameter_requires_grad(self.model, True)
+        set_parameter_requires_grad(self.model, False)
 
         # Modificar la primera capa convolucional para aceptar imágenes de 1 canal (PET scans)
         # original_weight = self.model.conv1.weight.data
@@ -85,14 +85,14 @@ class ResNet18_2D(nn.Module):
 
         """
         # print(f"Input shape: {x.shape}")
-        if x.dim() == 3:
-            # Add 3 channels (copied from the single channel)
-            x = torch.stack([x] * 3, dim=1)
-        elif x.dim() == 4 and x.size(1) == 1:
-            # Add 3 channels (copied from the single channel)
-            x = x.repeat(1, 3, 1, 1)
-        elif x.dim() != 4 or x.size(1) != 3:
-            raise ValueError("Input tensor must be of shape [batch_size, 1, H, W] or [batch_size, 3, H, W]")
+        # if x.dim() == 3:
+        #     # Add 3 channels (copied from the single channel)
+        #     x = torch.stack([x] * 3, dim=1)
+        # elif x.dim() == 4 and x.size(1) == 1:
+        #     # Add 3 channels (copied from the single channel)
+        #     x = x.repeat(1, 3, 1, 1)
+        # elif x.dim() != 4 or x.size(1) != 3:
+        #     raise ValueError("Input tensor must be of shape [batch_size, 1, H, W] or [batch_size, 3, H, W]")
         # print(f"Modified input shape: {x.shape}")
         out = self.model(x)
         # print(f"Output shape: {out.shape}")
