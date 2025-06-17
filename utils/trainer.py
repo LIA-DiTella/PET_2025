@@ -512,13 +512,14 @@ class Trainer:
                 # Forward pass
                 output = self.model(data)
 
-                # Convertir target de one-hot a índices si es necesario para la función de pérdida
-                if target.dim() > 1 and target.shape[1] > 1:
-                    # Si target es one-hot, convertir a índices para CrossEntropyLoss
-                    target_for_loss = torch.argmax(target, dim=1)
-                else:
-                    # Si target ya son índices, usar directamente
-                    target_for_loss = target
+                # # Convertir target de one-hot a índices si es necesario para la función de pérdida
+                # if target.dim() > 1 and target.shape[1] > 1:
+                #     # Si target es one-hot, convertir a índices para CrossEntropyLoss
+                #     target_for_loss = torch.argmax(target, dim=1)
+                # else:
+                #     # Si target ya son índices, usar directamente
+                #     target_for_loss = target
+                target_for_loss = target
 
                 # Calcular pérdida
                 loss = self.criterion(output, target_for_loss)
