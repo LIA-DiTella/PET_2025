@@ -3,6 +3,7 @@ import os
 import nibabel as nib
 import numpy as np
 import pandas as pd
+import torch
 from nilearn import image as nli
 
 # import torch
@@ -329,12 +330,7 @@ class PETDataset(Dataset):
                 continue
 
             # Procesar etiqueta
-            try:
-                label = self._label_to_index(row[diagnosis_col], self.class_count)
-            except Exception as _:
-                # if self.verbose:
-                # print(f"Error al procesar etiqueta '{row[diagnosis_col]}': {e}")
-                continue
+            label = self._label_to_index(row[diagnosis_col], self.class_count)
 
             # Cargar y procesar imagen
             try:
@@ -343,21 +339,24 @@ class PETDataset(Dataset):
 
                 nifti = nli.load_img(img_path)  # Usar nilearn para cargar imágenes NIfTI
 
-                TR = nifti.header["pixdim"][4]
-                nifti = nli.clean_img(nifti, detrend=True, standardize=True, t_r=TR)
-                
-                # nifti = nli.mean_img(
-                #     nifti,  # Promediar a lo largo del eje temporal si es dinámico
-                #     copy_header=True,
-                # )  # Usar nilearn para promediar el volumen dinámico
-
-                img_data = nifti.get_fdata()
-
                 if count == 0 and self.verbose:
                     print(f"Cargando imagen: {img_path}")
-                    print(f"Dimensiones de la imagen: {img_data.shape}")
+                    print(f"Dimensiones de la imagen: {nifti.get_fdata().shape}")
                     hdr = nifti.header
                     print(f"Header de la imagen: {hdr}")
+
+                if nifti.get_fdata().ndim == 4:
+                    TR = nifti.header["pixdim"][4]
+                    nifti = nli.clean_img(nifti, detrend=True, standardize=True, t_r=TR)
+                    if count == 0 and self.verbose:
+                        print(f"Imagen dinámica detectada: {img_path} con TR={TR}")
+                        print("Averaging")
+                    nifti = nli.mean_img(
+                        nifti,  # Promediar a lo largo del eje temporal si es dinámico
+                        copy_header=True,
+                    )  # Usar nilearn para promediar el volumen dinámico
+
+                img_data = nifti.get_fdata()
 
                 if self.verbose and count == 0:
                     print(f"Cargado volumen de forma: {img_data.shape}")
@@ -385,6 +384,8 @@ class PETDataset(Dataset):
                         self.samples.append((image, label))
                         count += 1
                 else:
+                    if count == 0 and self.verbose:
+                        print("not dynamic PET")
                     image = self.process_image(img_data)
                     # Añadir a las muestras
                     self.samples.append((image, label))
@@ -477,6 +478,7 @@ class PETDataset(Dataset):
         ohe_label = np.zeros(self.class_count, dtype=np.float32)
         ohe_label[label] = 1.0
         label = ohe_label
+        # label = torch.tensor(label, dtype=torch.float32)
 
         return img, label
 
