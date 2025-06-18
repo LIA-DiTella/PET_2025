@@ -90,10 +90,11 @@ def train_model(config_path, gpu_id=None, data_loaders=None):
             with torch.no_grad():
                 outputs = model(inputs)
                 loss_value = loss(outputs, labels)
-                _, preds = torch.max(outputs, 1)
-                corrects = (preds == labels).sum().item()
-                total = labels.size(0)
-                accuracy = corrects / total
+                pred = outputs.argmax(dim=1)
+                true = labels.argmax(dim=1) if labels.dim() > 1 else labels
+                corrects = (pred == true).sum().item()
+            
+            accuracy = corrects / labels.size(0)
 
             train_losses.append(loss_value.item())
             train_accuracies.append(accuracy)
@@ -113,10 +114,10 @@ def train_model(config_path, gpu_id=None, data_loaders=None):
                 _, v_preds = torch.max(val_outputs, 1)
                 v_corrects = (v_preds == val_labels).sum().item()
                 v_total = val_labels.size(0)
+            val_loss += v_loss.item() * v_total
+            val_corrects += v_corrects
+            val_total += v_total
 
-                val_loss += v_loss.item() * v_total
-                val_corrects += v_corrects
-                val_total += v_total
         val_loss /= val_total
         val_accuracy = val_corrects / val_total
         
@@ -139,7 +140,6 @@ def train_model(config_path, gpu_id=None, data_loaders=None):
             _, t_preds = torch.max(outputs, 1)
             t_corrects = (t_preds == test_labels).sum().item()
             t_total = test_labels.size(0)
-
             test_loss += t_loss.item() * t_total
             test_corrects += t_corrects
             test_total += t_total
