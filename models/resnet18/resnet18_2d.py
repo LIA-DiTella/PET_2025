@@ -44,7 +44,7 @@ class ResNet18_2D(nn.Module):
 
         # Congelar parámetros si feature_extract=True
         # set_parameter_requires_grad(self.model, feature_extract)
-        set_parameter_requires_grad(self.model, feature_extract=True)
+        set_parameter_requires_grad(self.model, feature_extract=feature_extract)
 
         # Modificar la primera capa convolucional para aceptar imágenes de 1 canal (PET scans)
         # original_weight = self.model.conv1.weight.data
@@ -115,5 +115,8 @@ def get_resnet18_2d(config):
     # Obtener número de clases de configuración
     num_classes = config.get("num_classes", 2)  # Por defecto binario CN/AD
     pretrained = config.get("pretrained", True)
+    feature_extract = config.get("feature_extract", False)
+    dropout_rate = config.get("dropout_rate", 0.6)
 
-    return ResNet18_2D(num_classes=num_classes, pretrained=pretrained)
+    return ResNet18_2D(num_classes=num_classes, pretrained=pretrained,
+                       feature_extract=feature_extract, dropout_rate=dropout_rate)
