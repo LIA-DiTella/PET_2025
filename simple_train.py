@@ -86,11 +86,14 @@ def train_model(config_path, gpu_id=None, data_loaders=None):
             loss_value.backward()
             optimizer.step()
 
-            # Calcular métricas de entrenamiento
+            model.eval()
+            # ROC_AUC, Accuracy, Loss
+
             with torch.no_grad():
+                outputs = model(inputs)
+                loss_value = loss(outputs, labels)
                 pred = outputs.argmax(dim=1)
-                # Las etiquetas son índices enteros, no one-hot
-                true = labels
+                true = labels.argmax(dim=1) if labels.dim() > 1 else labels
                 corrects = (pred == true).sum().item()
 
             accuracy = corrects / labels.size(0)
@@ -98,30 +101,24 @@ def train_model(config_path, gpu_id=None, data_loaders=None):
             train_losses.append(loss_value.item())
             train_accuracies.append(accuracy)
         
-        # Validación
         model.eval()
+        # Valid
         val_loss = 0.0
         val_corrects = 0
         val_total = 0
-        
-        with torch.no_grad():
-            for val_batch in val_loader:
-                val_inputs, val_labels = val_batch
-                val_inputs, val_labels = val_inputs.to(device), val_labels.to(device)
+        for val_batch in val_loader:
+            val_inputs, val_labels = val_batch
+            val_inputs, val_labels = val_inputs.to(device), val_labels.to(device)
 
+            with torch.no_grad():
                 val_outputs = model(val_inputs)
                 v_loss = loss(val_outputs, val_labels)
-                
-                # Obtener predicciones
-                val_pred = val_outputs.argmax(dim=1)
-                # Las etiquetas son índices enteros, no one-hot
-                val_true = val_labels
-                
-                # Acumular métricas
-                batch_size = val_labels.size(0)
-                val_loss += v_loss.item() * batch_size
-                val_corrects += (val_pred == val_true).sum().item()
-                val_total += batch_size
+                _, v_preds = torch.max(val_outputs, 1)
+                v_corrects = (v_preds == val_labels).sum().item()
+                v_total = val_labels.size(0)
+            val_loss += v_loss.item() * v_total
+            val_corrects += v_corrects
+            val_total += v_total
 
         val_loss /= val_total
         val_accuracy = val_corrects / val_total
@@ -129,40 +126,25 @@ def train_model(config_path, gpu_id=None, data_loaders=None):
         val_losses.append(val_loss)
         val_accuracies.append(val_accuracy)
 
-        # Debug info para el primer epoch
-        if epoch == 0:
-            print(f"Debug - Val total samples: {val_total}, Val corrects: {val_corrects}")
-            print(f"Debug - Unique predictions: {torch.unique(val_pred).cpu().numpy()}")
-            print(f"Debug - Unique true labels: {torch.unique(val_true).cpu().numpy()}")
-            print(f"Debug - First few predictions: {val_pred[:5].cpu().numpy()}")
-            print(f"Debug - First few true labels: {val_true[:5].cpu().numpy()}")
-
         print(f"Epoch {epoch + 1}/{epochs}, Loss: {loss_value.item()}, Accuracy: {accuracy:.4f}, Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}")
 
-    # Evaluación en test
     model.eval()
     with torch.no_grad():
         test_loss = 0.0
         test_corrects = 0
         test_total = 0
-        
         for test_batch in test_loader:
             test_inputs, test_labels = test_batch
             test_inputs, test_labels = test_inputs.to(device), test_labels.to(device)
 
-            test_outputs = model(test_inputs)
-            t_loss = loss(test_outputs, test_labels)
-            
-            # Obtener predicciones
-            test_pred = test_outputs.argmax(dim=1)
-            # Las etiquetas son índices enteros, no one-hot
-            test_true = test_labels
-            
-            # Acumular métricas
-            batch_size = test_labels.size(0)
-            test_loss += t_loss.item() * batch_size
-            test_corrects += (test_pred == test_true).sum().item()
-            test_total += batch_size
+            outputs = model(test_inputs)
+            t_loss = loss(outputs, test_labels)
+            _, t_preds = torch.max(outputs, 1)
+            t_corrects = (t_preds == test_labels).sum().item()
+            t_total = test_labels.size(0)
+            test_loss += t_loss.item() * t_total
+            test_corrects += t_corrects
+            test_total += t_total
 
         test_loss /= test_total
         test_accuracy = test_corrects / test_total
