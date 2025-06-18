@@ -500,7 +500,7 @@ class Trainer:
                 # Guardar predicciones
                 scores = torch.softmax(output, dim=1)
                 predictions = scores.argmax(dim=1)
-                
+
                 target_indices = target.argmax(dim=1) if target.dim() > 1 else target
 
                 all_targets.extend(target_indices.cpu().numpy())
