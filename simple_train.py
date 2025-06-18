@@ -36,6 +36,8 @@ def train_model(config_path, gpu_id=None, data_loaders=None):
     else:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    print(f"Usando dispositivo: {device}")
+
     # Obtener parámetros del modelo
     model_config = config.get("model", {})
     # model_name = model_config.get("name", "resnet18").lower()
@@ -56,15 +58,23 @@ def train_model(config_path, gpu_id=None, data_loaders=None):
 
     # Entrenar modelo
     model = models.resnet18(weights="IMAGENET1K_V1")
+    model.fc = nn.Linear(model.fc.in_features, num_classes)
+    model = model.to(device)
 
     loss = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-    model.to(device)
     model.train()
 
+    train_losses = []
+    val_losses = []
+    train_accuracies = []
+    val_accuracies = []
+    
     epochs = 50
     for epoch in range(epochs):
         for batch in train_loader:
+            # Entrenamiento
+            model.train()
             inputs, labels = batch
             inputs, labels = inputs.to(device), labels.to(device)
 
@@ -85,30 +95,35 @@ def train_model(config_path, gpu_id=None, data_loaders=None):
                 total = labels.size(0)
                 accuracy = corrects / total
 
-                # Valid
-                val_loss = 0.0
-                val_corrects = 0
-                val_total = 0
-                for val_batch in val_loader:
-                    val_inputs, val_labels = val_batch
-                    val_inputs, val_labels = val_inputs.to(device), val_labels.to(device)
+            train_losses.append(loss_value.item())
+            train_accuracies.append(accuracy)
+        
+        model.eval()
+        # Valid
+        val_loss = 0.0
+        val_corrects = 0
+        val_total = 0
+        for val_batch in val_loader:
+            val_inputs, val_labels = val_batch
+            val_inputs, val_labels = val_inputs.to(device), val_labels.to(device)
 
-                    with torch.no_grad():
-                        val_outputs = model(val_inputs)
-                        v_loss = loss(val_outputs, val_labels)
-                        _, v_preds = torch.max(val_outputs, 1)
-                        v_corrects = (v_preds == val_labels).sum().item()
-                        v_total = val_labels.size(0)
+            with torch.no_grad():
+                val_outputs = model(val_inputs)
+                v_loss = loss(val_outputs, val_labels)
+                _, v_preds = torch.max(val_outputs, 1)
+                v_corrects = (v_preds == val_labels).sum().item()
+                v_total = val_labels.size(0)
 
-                        val_loss += v_loss.item() * v_total
-                        val_corrects += v_corrects
-                        val_total += v_total
-                val_loss /= val_total
-                val_accuracy = val_corrects / val_total
+                val_loss += v_loss.item() * v_total
+                val_corrects += v_corrects
+                val_total += v_total
+        val_loss /= val_total
+        val_accuracy = val_corrects / val_total
+        
+        val_losses.append(val_loss)
+        val_accuracies.append(val_accuracy)
 
-            print(f"Epoch {epoch + 1}/{epochs}, Loss: {loss_value.item()}, Accuracy: {accuracy:.4f}, Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}")
-
-        print(f"Epoch {epoch + 1}/{epochs}, Loss: {loss_value.item()}")
+        print(f"Epoch {epoch + 1}/{epochs}, Loss: {loss_value.item()}, Accuracy: {accuracy:.4f}, Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}")
 
     model.eval()
     with torch.no_grad():
