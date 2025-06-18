@@ -68,7 +68,7 @@ class ResNet18_2D(nn.Module):
             nn.ReLU(),
             nn.Dropout(dropout_rate),
             nn.Linear(1024, num_classes),
-            nn.Softmax(dim=0)  # Asegurar salida de probabilidades
+            nn.Softmax(dim=1)
         )
         # self.model.fc = nn.Sequential(
         #     nn.Dropout(dropout_rate),
