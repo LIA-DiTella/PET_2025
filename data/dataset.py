@@ -239,8 +239,8 @@ class PETDataset(Dataset):
             try:
                 label = self._label_to_index(row[diagnosis_col], self.class_count)
             except Exception as e:
-                if self.verbose:
-                    print(f"Error al procesar etiqueta '{row[diagnosis_col]}': {e}")
+                # if self.verbose:
+                    # print(f"Error al procesar etiqueta '{row[diagnosis_col]}': {e}")
                 continue
 
             # Cargar y procesar imagen
