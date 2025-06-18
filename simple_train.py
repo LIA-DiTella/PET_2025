@@ -9,12 +9,11 @@ from torch import nn
 from torchvision import models
 
 # Importar módulos propios
+from data.dataset import get_data_loaders
+from utils.config_utils import load_config
 
 # Añadir directorios al path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from data.dataset import get_data_loaders
-from utils.config import load_config
 
 
 def train_model(config_path, gpu_id=None, data_loaders=None):
