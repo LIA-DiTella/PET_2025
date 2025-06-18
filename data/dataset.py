@@ -343,9 +343,9 @@ class PETDataset(Dataset):
 
                 nifti = nli.load_img(img_path)  # Usar nilearn para cargar imágenes NIfTI
 
-                nifti = nli.mean_img(
-                    nifti,  # Promediar a lo largo del eje temporal si es dinámico
-                )  # Usar nilearn para promediar el volumen dinámico
+                # nifti = nli.mean_img(
+                #     nifti,  # Promediar a lo largo del eje temporal si es dinámico
+                # )  # Usar nilearn para promediar el volumen dinámico
 
                 TR = nifti.header["pixdim"][4]
                 func_d = nli.clean_img(nifti, detrend=True, standardize=True, t_r=TR)
