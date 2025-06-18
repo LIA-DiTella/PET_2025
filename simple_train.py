@@ -92,8 +92,10 @@ def train_model(config_path, gpu_id=None, data_loaders=None):
             with torch.no_grad():
                 outputs = model(inputs)
                 loss_value = loss(outputs, labels)
+                print(outputs.shape, labels.shape)
                 pred = outputs.argmax(dim=1)
                 true = labels.argmax(dim=1) if labels.dim() > 1 else labels
+                print(f"Pred: {pred.shape}, True: {true.shape}")
                 corrects = (pred == true).sum().item()
 
             accuracy = corrects / labels.size(0)
