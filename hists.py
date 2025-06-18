@@ -55,10 +55,27 @@ def plot_data(config_path, gpu_id=None):
 
     # Crear histogramas de las imágenes
     def plot_histogram(images, title, ax):
-        ax.hist(images.flatten(), bins=50, alpha=0.7)
+        # Filtrar valores infinitos y NaN
+        valid_images = images.flatten()
+        valid_images = valid_images[np.isfinite(valid_images)]
+        
+        if len(valid_images) == 0:
+            ax.text(0.5, 0.5, 'No hay datos válidos', transform=ax.transAxes,
+                    ha='center', va='center')
+            ax.set_title(title)
+            return
+            
+        ax.hist(valid_images, bins=50, alpha=0.7)
         ax.set_title(title)
         ax.set_xlabel("Intensidad de píxel")
         ax.set_ylabel("Frecuencia")
+        
+        # Añadir estadísticas al título
+        mean_val = np.mean(valid_images)
+        std_val = np.std(valid_images)
+        min_val = np.min(valid_images)
+        max_val = np.max(valid_images)
+        ax.set_title(f"{title}\nMean: {mean_val:.3f}, Std: {std_val:.3f}, Range: [{min_val:.3f}, {max_val:.3f}]")
 
     fig, axs = plt.subplots(3, 1, figsize=(10, 15))
     plot_histogram(train_images, "Histograma de Imágenes de Entrenamiento", axs[0])
@@ -70,9 +87,18 @@ def plot_data(config_path, gpu_id=None):
     # Log distributions
     print("Distribución de imágenes de entrenamiento:")
     fig, axs = plt.subplots(3, 1, figsize=(10, 15))
-    log_train_images = np.log1p(train_images)
-    log_val_images = np.log1p(val_images)
-    log_test_images = np.log1p(test_images)
+    
+    # Para evitar -inf, usar log(abs(x) + 1) * sign(x) o una transformación más segura
+    # Alternativa: escalar los datos al rango [0, max] antes del log
+    def safe_log_transform(images):
+        # Escalar al rango [0, max] donde max es el valor máximo de los datos
+        images_shifted = images - np.min(images)  # Mover al rango [0, max]
+        return np.log1p(images_shifted)  # log(1 + x) donde x >= 0
+    
+    log_train_images = safe_log_transform(train_images)
+    log_val_images = safe_log_transform(val_images)
+    log_test_images = safe_log_transform(test_images)
+    
     plot_histogram(log_train_images, "Histograma de Imágenes de Entrenamiento (log)", axs[0])
     plot_histogram(log_val_images, "Histograma de Imágenes de Validación (log)", axs[1])
     plot_histogram(log_test_images, "Histograma de Imágenes de Prueba (log)", axs[2])
