@@ -298,14 +298,15 @@ class Trainer:
             # Entrenamiento
             self.model.train()
             train_loss, train_acc = self._train_epoch(train_loader, epoch)
+            
+            # Asegurar que el modelo esté en modo evaluación para calcular métricas
+            self.model.eval()
             train_metrics = self._evaluate(train_loader)
             train_loss = train_metrics["loss"]
             train_acc = train_metrics["accuracy"]
             train_auc = train_metrics.get("auc_roc", 0.0)
 
-            self.model.eval()
-            # Evaluación
-            print(self.model.model.dropout.training)
+            # El modelo ya está en modo evaluación para validación
             val_metrics = self._evaluate(val_loader)
             val_loss = val_metrics["loss"]
             val_acc = val_metrics["accuracy"]
@@ -403,7 +404,8 @@ class Trainer:
         # Logging final
         self.logger.info("Entrenamiento finalizado")
 
-        # Confussion matrix on Train set
+        # Matriz de confusión en el conjunto de entrenamiento
+        # Asegurar que el modelo esté en modo evaluación
         self.model.eval()
 
         train_metrics = self._evaluate(train_loader)
@@ -493,7 +495,14 @@ class Trainer:
 
     def _evaluate(self, data_loader):
         """Evalúa el modelo en un conjunto de datos."""
+        # Asegurar que el modelo esté en modo evaluación para desactivar dropout y batch norm
         self.model.eval()
+        
+        # Verificar que el modelo esté efectivamente en modo evaluación
+        if self.model.training:
+            self.logger.warning("El modelo sigue en modo entrenamiento - forzando modo evaluación")
+            self.model.eval()
+
         all_targets = []
         all_predictions = []
         all_scores = []
@@ -571,6 +580,9 @@ class Trainer:
             dict: Métricas de evaluación
 
         """
+        # Asegurar que el modelo esté en modo evaluación
+        self.model.eval()
+        
         metrics = self._evaluate(test_loader)
 
         # Logging
