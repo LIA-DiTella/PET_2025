@@ -40,8 +40,12 @@ def random_search(config_path: str, n_runs: int = 5):
         config["data"]["batch_size"] = batch
         config["experiment"]["name"] = run_name
 
+        # save config
+        config_save_path = f"configs/random_search/{run_name}.yaml"
+        config["experiment"]["config_path"] = config_save_path
+
         print(f"\n🔁 Ejecutando experimento: {run_name}")
-        result = train_model(config, gpu_id=None)
+        result = train_model(config_save_path, gpu_id=None)
         results.append(result)
 
     return results
