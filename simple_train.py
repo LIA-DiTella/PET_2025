@@ -12,6 +12,8 @@ from torchvision import models
 from data.dataset import get_data_loaders
 from utils.config_utils import load_config
 
+from matplotlib import pyplot as plt
+
 # Añadir directorios al path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -93,7 +95,7 @@ def train_model(config_path, gpu_id=None, data_loaders=None):
                 pred = outputs.argmax(dim=1)
                 true = labels.argmax(dim=1) if labels.dim() > 1 else labels
                 corrects = (pred == true).sum().item()
-            
+
             accuracy = corrects / labels.size(0)
 
             train_losses.append(loss_value.item())
@@ -147,6 +149,25 @@ def train_model(config_path, gpu_id=None, data_loaders=None):
         test_loss /= test_total
         test_accuracy = test_corrects / test_total
         print(f"Test Loss: {test_loss:.4f}, Test Accuracy: {test_accuracy:.4f}")
+
+    # Plotear resultados
+    fig, axs = plt.subplots(2, 1, figsize=(10, 10))
+    axs[0].plot(train_losses, label='Train Loss')
+    axs[0].plot(val_losses, label='Validation Loss')
+    axs[0].set_title('Loss per Epoch')
+    axs[0].set_xlabel('Epochs')
+    axs[0].set_ylabel('Loss')
+    axs[0].legend()
+
+    axs[1].plot(train_accuracies, label='Train Accuracy')
+    axs[1].plot(val_accuracies, label='Validation Accuracy')
+    axs[1].set_title('Accuracy per Epoch')
+    axs[1].set_xlabel('Epochs')
+    axs[1].set_ylabel('Accuracy')
+    axs[1].legend()
+    plt.tight_layout()
+    
+    plt.savefig("training_results.png")
 
 
 def parse_args():
