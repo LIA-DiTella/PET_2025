@@ -65,7 +65,7 @@ def plot_data(config_path, gpu_id=None):
             ax.set_title(title)
             return
             
-        ax.hist(valid_images, bins=50, alpha=0.7)
+        ax.hist(valid_images, bins=100, alpha=0.7)
         ax.set_title(title)
         ax.set_xlabel("Intensidad de píxel")
         ax.set_ylabel("Frecuencia")
