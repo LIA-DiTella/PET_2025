@@ -395,9 +395,12 @@ class PETDataset(Dataset):
 
                 if img_data.ndim == 4:
                     # img_data = img_data[:, :, :, 0]  # Usar solo el primer volumen
-                    img_data = np.mean(
-                        img_data, axis=3
-                    )  # Promediar a lo largo del eje temporal si es dinámico
+                    dynamic_index = img_data.shape[3] // 2  # Seleccionar el corte medio si es dinámico
+                    img_data = img_data[:, :, :, dynamic_index]  # Usar el corte medio
+                    
+                    # img_data = np.mean(
+                    #     img_data, axis=3
+                    # )  # Promediar a lo largo del eje temporal si es dinámico
 
                 elif img_data.ndim != 3:
                     raise ValueError(f"Formato de imagen no soportado: {img_data.ndim} dimensiones")
