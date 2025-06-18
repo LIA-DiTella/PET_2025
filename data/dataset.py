@@ -470,9 +470,9 @@ class PETDataset(Dataset):
             # img = transforms.functional.normalize(img, mean=np.mean([0.485, 0.456, 0.406]), std=np.mean([0.229, 0.224, 0.225]))  # Normalizar
             img = img.repeat(3, 1, 1)
 
-            # img = transforms.functional.normalize(
-            # img, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-            # )  # Normalizar
+            img = transforms.functional.normalize(
+                img, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+            )  # Normalizar
 
             # print(f"Imagen normalizada: forma {img.shape}, etiqueta {label}")
             # img = img[np.newaxis, :, :]  # Añadir dimensión de canal (1, H, W
@@ -485,7 +485,7 @@ class PETDataset(Dataset):
         ohe_label = np.zeros(self.class_count, dtype=np.float32)
         ohe_label[label] = 1.0
         label = ohe_label
-        # label = torch.tensor(label, dtype=torch.float32)
+        label = torch.tensor(label, dtype=torch.float32)
 
         return img, label
 
