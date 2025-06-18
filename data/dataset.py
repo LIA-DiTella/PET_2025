@@ -161,6 +161,17 @@ class PETDataset(Dataset):
 
     def process_image(self, img_data):
         # Seleccionar cortes según el método especificado
+        
+        # if self.mode == "train":
+        #     # augmentación de datos
+        #     ts = transforms.Compose(
+        #         [
+        #             transforms.RandomRotation(30),
+        #             transforms.RandomResizedCrop(128, scale=(0.8, 1.0)),
+        #         ]
+        #     )
+        #     img_data = ts(img_data)
+
         if self.slice_selection == "middle":
             # Corte central y adyacentes
             middle_idx = img_data.shape[2] // 2
@@ -201,23 +212,6 @@ class PETDataset(Dataset):
         image = np.zeros((128, 128, len(slices_data)), dtype=np.float32)
         for i in range(len(slices_data)):
             slice_img = resize(slices_data[i], (128, 128), anti_aliasing=False)
-
-            # if augmentation is needed, apply it here
-            if self.mode == "train":
-                # ts = transforms.Compose(
-                #     [
-                #         transforms.ToPILImage(),
-                #         # transforms.RandomHorizontalFlip(),
-                #         # transforms.RandomVerticalFlip(),
-                #         transforms.RandomRotation(30),
-                #         # zoom
-                #         transforms.ToTensor(),
-                #     ]
-                # )
-
-                # slice_img = ts(slice_img)
-                None
-
             image[:, :, i] = slice_img
 
         if not self.is_3d:

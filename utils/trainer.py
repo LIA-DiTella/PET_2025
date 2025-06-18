@@ -305,7 +305,7 @@ class Trainer:
 
             self.model.eval()
             # Evaluación
-            print(self.model.dropout.training)
+            print(self.model.model.dropout.training)
             val_metrics = self._evaluate(val_loader)
             val_loss = val_metrics["loss"]
             val_acc = val_metrics["accuracy"]
@@ -456,8 +456,8 @@ class Trainer:
             output = self.model(data)
 
             target_for_loss = target
-            print(f"Output shape: {output.shape}")
-            print(f"Target shape: {target_for_loss.shape}")
+            # print(f"Output shape: {output.shape}")
+            # print(f"Target shape: {target_for_loss.shape}")
             # print(f"Loss function type: {type(self.criterion)}")
             loss = self.criterion(output, target_for_loss)
 
@@ -507,8 +507,8 @@ class Trainer:
                 output = self.model(data)
 
                 target_for_loss = target
-                print(f"Output shape: {output.shape}")
-                print(f"Target shape: {target_for_loss.shape}")
+                # print(f"Output shape: {output.shape}")
+                # print(f"Target shape: {target_for_loss.shape}")
 
                 # Calcular pérdida
                 loss = self.criterion(output, target_for_loss)
