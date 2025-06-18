@@ -441,28 +441,7 @@ class Trainer:
             # Forward pass
             self.optimizer.zero_grad()
 
-            # if hasattr(self.model, "module") and hasattr(self.model.module, "aux_logits"):
-            #     output, aux_output = self.model(data)
-            #     loss1 = self.criterion(output, target)
-            #     loss2 = self.criterion(aux_output, target)
-            #     loss = loss1 + 0.4 * loss2  # Ponderación para la salida auxiliar
-            # else:
-
             output = self.model(data)
-            
-            # Debug: Print tensor shapes
-            print(f"Output shape: {output.shape}")
-            print(f"Target shape before conversion: {target.shape}")
-            
-            # Convertir target de one-hot a índices si es necesario para la función de pérdida
-            # if target.dim() > 1 and target.shape[1] > 1:
-            #     # Si target es one-hot, convertir a índices para CrossEntropyLoss
-            #     target_for_loss = torch.argmax(target, dim=1)
-            #     print(f"Target converted to indices, shape: {target_for_loss.shape}")
-            # else:
-            #     # Si target ya son índices, usar directamente
-            #     target_for_loss = target
-            #     print(f"Target used as is, shape: {target_for_loss.shape}")
 
             target_for_loss = target
                 
@@ -512,13 +491,6 @@ class Trainer:
                 # Forward pass
                 output = self.model(data)
 
-                # # Convertir target de one-hot a índices si es necesario para la función de pérdida
-                # if target.dim() > 1 and target.shape[1] > 1:
-                #     # Si target es one-hot, convertir a índices para CrossEntropyLoss
-                #     target_for_loss = torch.argmax(target, dim=1)
-                # else:
-                #     # Si target ya son índices, usar directamente
-                #     target_for_loss = target
                 target_for_loss = target
 
                 # Calcular pérdida
@@ -527,16 +499,9 @@ class Trainer:
 
                 # Guardar predicciones
                 scores = torch.softmax(output, dim=1)
-                scores = output  # Asumiendo que output ya son logits
-                predictions = torch.argmax(output, dim=1)
-
-                # Convertir targets de one-hot a índices de clase si es necesario
-                if target.dim() > 1 and target.shape[1] > 1:
-                    # Si target es one-hot (batch_size, num_classes), convertir a índices
-                    target_indices = torch.argmax(target, dim=1)
-                else:
-                    # Si target ya son índices de clase, usar directamente
-                    target_indices = target
+                predictions = scores.argmax(dim=1)
+                
+                target_indices = target.argmax(dim=1) if target.dim() > 1 else target
 
                 all_targets.extend(target_indices.cpu().numpy())
                 all_predictions.extend(predictions.cpu().numpy())
