@@ -454,7 +454,8 @@ class Trainer:
             output = self.model(data)
 
             target_for_loss = target
-
+            print(f"Output shape: {output.shape}")
+            print(f"Target shape: {target_for_loss.shape}")
             # print(f"Loss function type: {type(self.criterion)}")
             loss = self.criterion(output, target_for_loss)
 
@@ -504,7 +505,9 @@ class Trainer:
                 output = self.model(data)
 
                 target_for_loss = target
-
+                print(f"Output shape: {output.shape}")
+                print(f"Target shape: {target_for_loss.shape}")
+                
                 # Calcular pérdida
                 loss = self.criterion(output, target_for_loss)
                 total_loss += loss.item()
