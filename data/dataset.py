@@ -204,17 +204,19 @@ class PETDataset(Dataset):
 
             # if augmentation is needed, apply it here
             if self.mode == "train":
-                ts = transforms.Compose(
-                    [
-                        transforms.ToPILImage(),
-                        transforms.RandomHorizontalFlip(),
-                        transforms.RandomVerticalFlip(),
-                        transforms.RandomRotation(10),
-                        transforms.ToTensor(),
-                    ]
-                )
+                # ts = transforms.Compose(
+                #     [
+                #         transforms.ToPILImage(),
+                #         # transforms.RandomHorizontalFlip(),
+                #         # transforms.RandomVerticalFlip(),
+                #         transforms.RandomRotation(30),
+                #         # zoom
+                #         transforms.ToTensor(),
+                #     ]
+                # )
 
-                slice_img = ts(slice_img)
+                # slice_img = ts(slice_img)
+                None
 
             image[:, :, i] = slice_img
 
@@ -399,8 +401,12 @@ class PETDataset(Dataset):
                 #     count += 1
 
                 if img_data.ndim == 4:
-                    img_data = img_data[:, :, :, 0]  # Usar solo el primer volumen
+                    # img_data = img_data[:, :, :, 0]  # Usar solo el primer volumen
+                    img_data = np.mean(img_data, axis=3)  # Promediar a lo largo del eje temporal si es dinámico
 
+                elif img_data.ndim != 3:
+                    raise ValueError(f"Formato de imagen no soportado: {img_data.ndim} dimensiones")
+                
                 image = self.process_image(img_data)
                 # Añadir a las muestras
                 self.samples.append((image, label))

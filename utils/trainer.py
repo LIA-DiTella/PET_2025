@@ -299,12 +299,13 @@ class Trainer:
             self.model.train()
             train_loss, train_acc = self._train_epoch(train_loader, epoch)
             train_metrics = self._evaluate(train_loader)
-            # train_loss = train_metrics["loss"]
-            # train_acc = train_metrics["accuracy"]
+            train_loss = train_metrics["loss"]
+            train_acc = train_metrics["accuracy"]
             train_auc = train_metrics.get("auc_roc", 0.0)
 
             self.model.eval()
             # Evaluación
+            print(self.model.dropout.training)
             val_metrics = self._evaluate(val_loader)
             val_loss = val_metrics["loss"]
             val_acc = val_metrics["accuracy"]
@@ -404,6 +405,7 @@ class Trainer:
 
         # Confussion matrix on Train set
         self.model.eval()
+
         train_metrics = self._evaluate(train_loader)
         self.logger.info("Métricas de entrenamiento:")
         for metric_name, value in train_metrics.items():
@@ -507,7 +509,7 @@ class Trainer:
                 target_for_loss = target
                 print(f"Output shape: {output.shape}")
                 print(f"Target shape: {target_for_loss.shape}")
-                
+
                 # Calcular pérdida
                 loss = self.criterion(output, target_for_loss)
                 total_loss += loss.item()
