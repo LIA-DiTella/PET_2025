@@ -375,7 +375,6 @@ class PETDataset(Dataset):
 
                         img_data = nli.mean_img(
                             img_data,  # Promediar a lo largo del eje temporal si es dinámico
-                            ensure_finite=True
                         )  # Usar nilearn para promediar el volumen dinámico
 
                         image = self.process_image(img_data)
