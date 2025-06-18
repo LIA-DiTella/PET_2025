@@ -497,7 +497,8 @@ class Trainer:
         """Evalúa el modelo en un conjunto de datos."""
         # Asegurar que el modelo esté en modo evaluación para desactivar dropout y batch norm
         self.model.eval()
-        
+        self.model.model.eval()
+
         # Verificar que el modelo esté efectivamente en modo evaluación
         if self.model.training:
             self.logger.warning("El modelo sigue en modo entrenamiento - forzando modo evaluación")
