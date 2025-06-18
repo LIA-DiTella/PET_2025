@@ -5,10 +5,9 @@ from pathlib import Path
 
 import yaml
 
+from data.dataset import get_data_loaders
 from train import train_model
 from utils.config_utils import load_config
-
-from data.dataset import get_data_loaders
 
 
 def random_search(config_path: str, n_runs: int = 5):
@@ -21,6 +20,7 @@ def random_search(config_path: str, n_runs: int = 5):
     optimizers = ["adam", "sgd"]
     feature_extract_options = [True, False]
 
+    data_loaders = get_data_loaders(base_config)
     results = []
 
     for _ in range(n_runs):
@@ -51,11 +51,11 @@ def random_search(config_path: str, n_runs: int = 5):
         config_save_path.parent.mkdir(parents=True, exist_ok=True)
         with open(config_save_path, "w") as f:
             yaml.dump(config, f)
-            
+
         config["experiment"]["config_path"] = config_save_path
 
         print(f"\n🔁 Ejecutando experimento: {run_name}")
-        result = train_model(config_save_path, gpu_id=None, data_loaders=get_data_loaders(config))
+        result = train_model(config_save_path, gpu_id=None, data_loaders=data_loaders)
         results.append(result)
 
     return results
