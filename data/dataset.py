@@ -398,7 +398,9 @@ class PETDataset(Dataset):
                 #     self.samples.append((image, label))
                 #     count += 1
 
-                img_data = img_data[:, :, :, 0]  # Usar solo el primer volumen
+                if img_data.ndim == 4:
+                    img_data = img_data[:, :, :, 0]  # Usar solo el primer volumen
+
                 image = self.process_image(img_data)
                 # Añadir a las muestras
                 self.samples.append((image, label))
