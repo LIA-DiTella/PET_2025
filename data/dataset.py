@@ -335,32 +335,29 @@ class PETDataset(Dataset):
             except ValueError as e:
                 continue
 
-
             # Cargar y procesar imagen
             try:
                 # nifti = nib.load(img_path)
                 # img_data = nifti.get_fdata()
 
                 nifti = nli.load_img(img_path)  # Usar nilearn para cargar imágenes NIfTI
-
+                img_data = nifti.get_fdata()
                 if count == 0 and self.verbose:
                     print(f"Cargando imagen: {img_path}")
-                    print(f"Dimensiones de la imagen: {nifti.get_fdata().shape}")
+                    print(f"Dimensiones de la imagen: {img_data.shape}")
                     hdr = nifti.header
                     print(f"Header de la imagen: {hdr}")
 
-                if nifti.get_fdata().ndim == 4:
-                    TR = nifti.header["pixdim"][4]
-                    nifti = nli.clean_img(nifti, detrend=True, standardize=True, t_r=TR)
-                    if count == 0 and self.verbose:
-                        print(f"Imagen dinámica detectada: {img_path} con TR={TR}")
-                        print("Averaging")
-                    nifti = nli.mean_img(
-                        nifti,  # Promediar a lo largo del eje temporal si es dinámico
-                        copy_header=True,
-                    )  # Usar nilearn para promediar el volumen dinámico
-
-                img_data = nifti.get_fdata()
+                # if img_data.ndim == 4:
+                #     TR = nifti.header["pixdim"][4]
+                #     print(f"Cleaning - detrend and standardize with TR={TR}")
+                #     nifti = nli.clean_img(nifti, detrend=True, standardize=True, t_r=TR)
+                #     print(f"Imagen dinámica detectada: {img_path} con TR={TR}")
+                #     nifti = nli.mean_img(
+                #         nifti,  # Promediar a lo largo del eje temporal si es dinámico
+                #         copy_header=True,
+                #     )
+                #     img_data = nifti.get_fdata()
 
                 if self.verbose and count == 0:
                     print(f"Cargado volumen de forma: {img_data.shape}")
@@ -373,6 +370,9 @@ class PETDataset(Dataset):
                     # dynamic_index = 0
                     # dynamic_index = img_data.shape[3] // 2  # Seleccionar el corte medio si es dinámico
                     # img_data = img_data[:, :, :, dynamic_index]
+                    if count == 0 and self.verbose:
+                        print(f"Imagen dinámica detectada: {img_path} con {img_data.shape[3]} volúmenes")
+
                     if self.dynamic_all:
                         for i in range(img_data.shape[3]):
                             img_data_slice = img_data[:, :, :, i]
@@ -382,6 +382,9 @@ class PETDataset(Dataset):
                             count += 1
                     else:
                         # img_data = np.mean(img_data, axis=3)  # Promediar a lo largo del eje temporal si es dinámico
+                        if count == 0 and self.verbose:
+                            print(f"Usando el primer volumen de la imagen dinámica: {img_path}")
+
                         img_data = img_data[:, :, :, 0]  # Usar solo el primer volumen
                         image = self.process_image(img_data)
                         # Añadir a las muestras
