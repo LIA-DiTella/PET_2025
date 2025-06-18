@@ -137,6 +137,8 @@ def plot_data(config_path, gpu_id=None):
     plt.tight_layout()
     plt.savefig("histograms_log_no_zeros.png")
 
+    return
+
 
 def parse_args():
     """Parsea argumentos de línea de comandos."""
