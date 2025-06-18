@@ -252,10 +252,15 @@ class PETDataset(Dataset):
                     print(f"Cargado volumen de forma: {img_data.shape}")
 
                 # if dynamic PET, seleccionar el primer volumen
-                if img_data.ndim == 4:
-                    img_data = img_data[:, :, :, 0]
-                elif img_data.ndim != 3:
+                if img_data.ndim != 3 and img_data.ndim != 4:
                     raise ValueError(f"Formato de imagen no soportado: {img_data.ndim} dimensiones")
+
+                if img_data.ndim == 4:
+                    # dynamic_index = 0
+                    dynamic_index = img_data.shape[3] // 2  # Seleccionar el corte medio si es dinámico
+                    img_data = img_data[:, :, :, dynamic_index]
+                    # for j in range(img_data.shape[3]):
+                    #     img_data = img_data[:, :, :, j]
 
                 # Seleccionar cortes según el método especificado
                 if self.slice_selection == "middle":
@@ -313,6 +318,8 @@ class PETDataset(Dataset):
                                 transforms.ToTensor(),
                             ]
                         )
+
+                        slice_img = ts(slice_img)
                         
                     image[:, :, i] = slice_img
 
