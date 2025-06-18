@@ -7,7 +7,6 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from matplotlib.animation import FuncAnimation
 
 # Importar módulos propios
 from data.dataset import get_data_loaders
@@ -23,9 +22,9 @@ def plot_data(config_path, gpu_id=None):
 
     # Configurar dispositivo
     if gpu_id is not None and torch.cuda.is_available():
-        device = torch.device(f"cuda:{gpu_id}")
+        torch.device(f"cuda:{gpu_id}")
     else:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Obtener parámetros del modelo
     model_config = config.get("model", {})
@@ -60,6 +59,7 @@ def plot_data(config_path, gpu_id=None):
         ax.set_title(title)
         ax.set_xlabel("Intensidad de píxel")
         ax.set_ylabel("Frecuencia")
+
     fig, axs = plt.subplots(3, 1, figsize=(10, 15))
     plot_histogram(train_images, "Histograma de Imágenes de Entrenamiento", axs[0])
     plot_histogram(val_images, "Histograma de Imágenes de Validación", axs[1])
@@ -97,9 +97,17 @@ def plot_data(config_path, gpu_id=None):
     log_train_images_no_zeros = np.log1p(train_images)
     log_val_images_no_zeros = np.log1p(val_images)
     log_test_images_no_zeros = np.log1p(test_images)
-    plot_histogram(log_train_images_no_zeros, "Histograma de Imágenes de Entrenamiento (log, sin ceros)", axs[0])
-    plot_histogram(log_val_images_no_zeros, "Histograma de Imágenes de Validación (log, sin ceros)", axs[1])
-    plot_histogram(log_test_images_no_zeros, "Histograma de Imágenes de Prueba (log, sin ceros)", axs[2])
+    plot_histogram(
+        log_train_images_no_zeros,
+        "Histograma de Imágenes de Entrenamiento (log, sin ceros)",
+        axs[0],
+    )
+    plot_histogram(
+        log_val_images_no_zeros, "Histograma de Imágenes de Validación (log, sin ceros)", axs[1]
+    )
+    plot_histogram(
+        log_test_images_no_zeros, "Histograma de Imágenes de Prueba (log, sin ceros)", axs[2]
+    )
     plt.tight_layout()
     plt.savefig("histograms_log_no_zeros.png")
 

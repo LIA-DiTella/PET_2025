@@ -13,7 +13,6 @@ from tqdm import tqdm
 
 
 def make_resample(_df, column):
-
     ad = _df[_df[column] == "AD"]
     cn = _df[_df[column] == "CN"]
     smc = _df[_df[column] == "SMC"]
@@ -26,7 +25,9 @@ def make_resample(_df, column):
     cn_count = len(cn) + len(smc)
 
     while ad_count < cn_count:
-        ad = pd.concat([ad, resample(ad, replace=True, n_samples=cn_count - ad_count, random_state=42)])
+        ad = pd.concat(
+            [ad, resample(ad, replace=True, n_samples=cn_count - ad_count, random_state=42)]
+        )
         ad_count = len(ad)
 
     # Concatenar de nuevo
@@ -84,7 +85,9 @@ class PETDataset(Dataset):
         # upsample minority class
 
         self.metadata = (
-            make_resample(df, "Group") if (mode == "train" and config and config.get("data", {}).get("resample", False)) else df
+            make_resample(df, "Group")
+            if (mode == "train" and config and config.get("data", {}).get("resample", False))
+            else df
         )  # Resample para entrenamiento si es necesario
 
         if self.verbose:
@@ -153,8 +156,8 @@ class PETDataset(Dataset):
     def _load_dataset(self) -> None:
         """Carga información de las imágenes y prepara dataset."""
         # Identificar columnas relevantes
-        subject_columns = ['Subject', 'subject', 'ID', 'PTID', 'path', 'filename']
-        diagnosis_columns = ['Group', 'group', 'diagnosis', 'DX', 'class', 'label']
+        subject_columns = ["Subject", "subject", "ID", "PTID", "path", "filename"]
+        diagnosis_columns = ["Group", "group", "diagnosis", "DX", "class", "label"]
 
         # Encontrar la columna de sujeto
         subject_col = None
@@ -166,10 +169,14 @@ class PETDataset(Dataset):
         # Si no se encontró, buscar columna con valores únicos
         if subject_col is None:
             for col in self.metadata.columns:
-                if len(self.metadata[col].unique()) >= len(self.metadata) * 0.9:  # Al menos 90% de valores únicos
+                if (
+                    len(self.metadata[col].unique()) >= len(self.metadata) * 0.9
+                ):  # Al menos 90% de valores únicos
                     subject_col = col
                     if self.verbose:
-                        print(f"Usando columna '{col}' como identificador de sujetos (valores únicos)")
+                        print(
+                            f"Usando columna '{col}' como identificador de sujetos (valores únicos)"
+                        )
                     break
 
         if subject_col is None:
@@ -189,7 +196,9 @@ class PETDataset(Dataset):
                 if 2 <= unique_values <= 5:  # Típico para diagnósticos
                     diagnosis_col = col
                     if self.verbose:
-                        print(f"Usando columna '{col}' como diagnóstico ({unique_values} valores únicos)")
+                        print(
+                            f"Usando columna '{col}' como diagnóstico ({unique_values} valores únicos)"
+                        )
                     break
 
         if diagnosis_col is None:
@@ -198,12 +207,19 @@ class PETDataset(Dataset):
         if self.verbose:
             print(f"Usando columna '{subject_col}' para identificar sujetos")
             print(f"Usando columna '{diagnosis_col}' para diagnósticos")
-            print(f"Valores únicos en '{diagnosis_col}': {self.metadata[diagnosis_col].unique().tolist()}")
+            print(
+                f"Valores únicos en '{diagnosis_col}': {self.metadata[diagnosis_col].unique().tolist()}"
+            )
 
         # Procesar cada fila en el CSV
         count = 0
         # for _, row in self.metadata.iterrows():
-        for index, row in tqdm(self.metadata.iterrows(), total=len(self.metadata), desc="Cargando dataset", disable=not self.verbose):
+        for _index, row in tqdm(
+            self.metadata.iterrows(),
+            total=len(self.metadata),
+            desc="Cargando dataset",
+            disable=not self.verbose,
+        ):
             # Si hay un límite de sujetos y se alcanzó, detener
             if self.limit is not None and count >= self.limit:
                 break
@@ -257,17 +273,23 @@ class PETDataset(Dataset):
                 elif self.slice_selection == "uniform":
                     # Seleccionar cortes uniformemente distribuidos
                     # 16 imágenes igualmente separadas entre ellas a lo largo del eje axial (redondeando al slice más cercano).
-                    slice_indices = np.linspace(0, img_data.shape[2] - 1, self.num_slices, dtype=int).tolist()
+                    slice_indices = np.linspace(
+                        0, img_data.shape[2] - 1, self.num_slices, dtype=int
+                    ).tolist()
 
                 elif self.slice_selection == "all":
                     # Tomar todos los cortes
                     slice_indices = list(range(0, img_data.shape[2]))
 
                 else:
-                    raise ValueError(f"Método de selección de cortes desconocido: {self.slice_selection}")
+                    raise ValueError(
+                        f"Método de selección de cortes desconocido: {self.slice_selection}"
+                    )
 
                 # Crear un array con todos los cortes seleccionados de una vez
-                slices_data = np.array([img_data[:, :, idx] for idx in slice_indices if 0 <= idx < img_data.shape[2]])
+                slices_data = np.array(
+                    [img_data[:, :, idx] for idx in slice_indices if 0 <= idx < img_data.shape[2]]
+                )
 
                 # Normalizar todos los cortes de una vez (por corte individual)
                 for i in range(len(slices_data)):
@@ -308,7 +330,7 @@ class PETDataset(Dataset):
                         image = np.concatenate(rows, axis=0)
 
                 # Añadir a las muestras
-                self.samples.append((image, label))                    
+                self.samples.append((image, label))
                 count += 1
 
             except Exception as e:
@@ -316,6 +338,7 @@ class PETDataset(Dataset):
                     print(f"Error al procesar imagen {img_path}: {e}")
 
                 import traceback
+
                 traceback.print_exc()
 
         if self.verbose:
@@ -331,11 +354,25 @@ class PETDataset(Dataset):
                     label_val = unique_labels[i]
                     count = counts[i]
                     if self.class_count == 2:
-                        class_name = "CN" if label_val == 0 else "AD" if label_val == 1 else f"Clase {label_val}"
+                        class_name = (
+                            "CN"
+                            if label_val == 0
+                            else "AD"
+                            if label_val == 1
+                            else f"Clase {label_val}"
+                        )
                     else:
-                        class_name = "CN" if label_val == 0 else "MCI" if label_val == 1 else "AD" if label_val == 2 else f"Clase {label_val}"
+                        class_name = (
+                            "CN"
+                            if label_val == 0
+                            else "MCI"
+                            if label_val == 1
+                            else "AD"
+                            if label_val == 2
+                            else f"Clase {label_val}"
+                        )
 
-                    print(f"  - {class_name}: {count} muestras ({count/len(labels)*100:.1f}%)")
+                    print(f"  - {class_name}: {count} muestras ({count / len(labels) * 100:.1f}%)")
 
     def __len__(self) -> int:
         return len(self.samples)
@@ -367,7 +404,9 @@ class PETDataset(Dataset):
             # print(f"Imagen centrada: forma {img.shape}, etiqueta {label}")
             # img = transforms.functional.normalize(img, mean=np.mean([0.485, 0.456, 0.406]), std=np.mean([0.229, 0.224, 0.225]))  # Normalizar
             img = img.repeat(3, 1, 1)
-            img = transforms.functional.normalize(img, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalizar
+            img = transforms.functional.normalize(
+                img, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+            )  # Normalizar
             # print(f"Imagen normalizada: forma {img.shape}, etiqueta {label}")
             # img = img[np.newaxis, :, :]  # Añadir dimensión de canal (1, H, W
             # print(f"Imagen con canal añadido: forma {img.shape}, etiqueta {label}")
@@ -397,7 +436,9 @@ def get_data_loaders(config):
     classes = data_config.get("classes", "CN_AD").split("_")
     for class_name in classes:
         if class_name not in ["CN", "MCI", "AD", "SMC", "EMCI", "LMCI"]:
-            raise ValueError(f"Clase desconocida: {class_name}. Debe ser CN, MCI, AD, SMC, EMCI o LMCI.")
+            raise ValueError(
+                f"Clase desconocida: {class_name}. Debe ser CN, MCI, AD, SMC, EMCI o LMCI."
+            )
     num_classes = len(classes)
     if num_classes not in [2, 3]:
         raise ValueError(f"Número de clases no soportado: {num_classes}. Debe ser 2 o 3.")

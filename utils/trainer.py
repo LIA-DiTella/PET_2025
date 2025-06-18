@@ -15,6 +15,7 @@ from utils.evaluation_utils import calculate_metrics, save_results_to_csv
 # Importar wandb para logging de experimentos
 try:
     import wandb
+
     WANDB_AVAILABLE = True
 except ImportError:
     WANDB_AVAILABLE = False
@@ -27,7 +28,17 @@ from sklearn.utils.class_weight import compute_class_weight
 class Trainer:
     """Clase para entrenar modelos de clasificación de imágenes médicas."""
 
-    def __init__(self, model, config, device=None, exp_dir=None, train_loader=None, val_loader=None, test_loader=None, num_classes=2):
+    def __init__(
+        self,
+        model,
+        config,
+        device=None,
+        exp_dir=None,
+        train_loader=None,
+        val_loader=None,
+        test_loader=None,
+        num_classes=2,
+    ):
         """Inicializa el entrenador.
 
         Args:
@@ -248,16 +259,12 @@ class Trainer:
             job_type=wandb_config.get("job_type", "train"),
             config=self.config,
             dir=self.exp_dir,
-            resume="allow"
+            resume="allow",
         )
 
         # Hacer seguimiento del modelo si está habilitado
         if wandb_config.get("watch_model", False):
-            wandb.watch(
-                self.model,
-                log="all",
-                log_freq=wandb_config.get("watch_freq", 100)
-            )
+            wandb.watch(self.model, log="all", log_freq=wandb_config.get("watch_freq", 100))
 
         # Configurar frecuencia de logging
         self.log_frequency = wandb_config.get("log_frequency", 10)
@@ -324,18 +331,21 @@ class Trainer:
             # )
 
             # Logging a wandb
-            wandb.log({
-                "epoch": epoch,
-                "train_loss": train_loss,
-                "train_accuracy": train_acc,
-                "val_loss": val_loss,
-                "val_accuracy": val_acc,
-                "learning_rate": self.optimizer.param_groups[0]['lr'],
-                "train_auc_roc": train_auc,
-                "val_auc_roc": val_auc,
-                "train_metrics": train_metrics,
-                "val_metrics": val_metrics,
-            }, step=epoch)
+            wandb.log(
+                {
+                    "epoch": epoch,
+                    "train_loss": train_loss,
+                    "train_accuracy": train_acc,
+                    "val_loss": val_loss,
+                    "val_accuracy": val_acc,
+                    "learning_rate": self.optimizer.param_groups[0]["lr"],
+                    "train_auc_roc": train_auc,
+                    "val_auc_roc": val_auc,
+                    "train_metrics": train_metrics,
+                    "val_metrics": val_metrics,
+                },
+                step=epoch,
+            )
 
             # Actualizar scheduler si es ReduceLROnPlateau
             if self.scheduler and isinstance(
@@ -410,16 +420,18 @@ class Trainer:
                 import seaborn as sns
 
                 plt.figure(figsize=(8, 6))
-                sns.heatmap(train_metrics["confusion_matrix"], annot=True, fmt='d', cmap='Blues')
-                plt.title('Matriz de Confusión - Conjunto de Entrenamiento')
-                plt.ylabel('Etiqueta Real')
-                plt.xlabel('Predicción')
+                sns.heatmap(train_metrics["confusion_matrix"], annot=True, fmt="d", cmap="Blues")
+                plt.title("Matriz de Confusión - Conjunto de Entrenamiento")
+                plt.ylabel("Etiqueta Real")
+                plt.xlabel("Predicción")
 
                 # Guardar y loggear a wandb
                 wandb.log({"train_confusion_matrix": wandb.Image(plt)})
                 plt.close()
             except ImportError:
-                self.logger.warning("matplotlib y/o seaborn no están disponibles para visualizar la matriz de confusión")
+                self.logger.warning(
+                    "matplotlib y/o seaborn no están disponibles para visualizar la matriz de confusión"
+                )
 
         return {
             "best_epoch": best_epoch,
@@ -444,7 +456,7 @@ class Trainer:
             output = self.model(data)
 
             target_for_loss = target
-                
+
             print(f"Loss function type: {type(self.criterion)}")
             loss = self.criterion(output, target_for_loss)
 
@@ -455,7 +467,9 @@ class Trainer:
             # Estadísticas
             total_loss += loss.item()
             pred = output.argmax(dim=1)
-            true = target.argmax(dim=1) if target.dim() > 1 else target  # Manejar si target es one-hot
+            true = (
+                target.argmax(dim=1) if target.dim() > 1 else target
+            )  # Manejar si target es one-hot
             correct += (pred == true).sum().item()
             total += true.size(0)
 
@@ -577,16 +591,18 @@ class Trainer:
                     import seaborn as sns
 
                     plt.figure(figsize=(8, 6))
-                    sns.heatmap(metrics["confusion_matrix"], annot=True, fmt='d', cmap='Blues')
-                    plt.title('Matriz de Confusión - Conjunto de Prueba')
-                    plt.ylabel('Etiqueta Real')
-                    plt.xlabel('Predicción')
+                    sns.heatmap(metrics["confusion_matrix"], annot=True, fmt="d", cmap="Blues")
+                    plt.title("Matriz de Confusión - Conjunto de Prueba")
+                    plt.ylabel("Etiqueta Real")
+                    plt.xlabel("Predicción")
 
                     # Guardar y loggear a wandb
                     wandb_metrics["test_confusion_matrix"] = wandb.Image(plt)
                     plt.close()
                 except ImportError:
-                    self.logger.warning("matplotlib y/o seaborn no están disponibles para visualizar la matriz de confusión")
+                    self.logger.warning(
+                        "matplotlib y/o seaborn no están disponibles para visualizar la matriz de confusión"
+                    )
 
             wandb.log(wandb_metrics)
 

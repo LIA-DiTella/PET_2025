@@ -1,4 +1,5 @@
 import os
+
 import torch
 import torch.nn.functional as F
 from huggingface_hub import hf_hub_download
@@ -143,41 +144,47 @@ def get_resnet18_3d(config):
     num_classes = config.get("num_classes", 2)  # Por defecto binario CN/AD
     pretrained = config.get("pretrained", True)  # Por defecto cargar pesos preentrenados
     in_channels = config.get("in_channels", 1)  # Por defecto 1 canal, pero configurable
-    
+
     model = ResNet18_3D(num_classes=num_classes, pretrained=pretrained, in_channels=in_channels)
-    
+
     if pretrained:
         # Descargar pesos preentrenados desde Hugging Face
         weights_path = hf_hub_download(
             repo_id="TencentMedicalNet/MedicalNet-Resnet18",
             filename="resnet_18_23dataset.pth",
-            cache_dir=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".cache")
+            cache_dir=os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".cache"
+            ),
         )
-        
+
         # Cargar pesos preentrenados
-        pretrained_dict = torch.load(weights_path, map_location=torch.device('cpu'), weights_only=False)
-        
+        pretrained_dict = torch.load(
+            weights_path, map_location=torch.device("cpu"), weights_only=False
+        )
+
         # Filtrar pesos relevantes (eliminar la capa FC que no coincide)
         model_dict = model.state_dict()
-        pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict and 'fc' not in k}
-        
+        pretrained_dict = {
+            k: v for k, v in pretrained_dict.items() if k in model_dict and "fc" not in k
+        }
+
         # Si el número de canales de entrada es distinto de 1, no podemos usar los pesos de la primera capa directamente
-        if in_channels != 1 and 'conv1.weight' in pretrained_dict:
+        if in_channels != 1 and "conv1.weight" in pretrained_dict:
             # Expandir los pesos de la primera capa convolucional para manejar múltiples canales
             # Técnica común: duplicar los pesos existentes a lo largo del canal de entrada
-            pretrained_conv1 = pretrained_dict['conv1.weight']  # [64, 1, 7, 7, 7]
+            pretrained_conv1 = pretrained_dict["conv1.weight"]  # [64, 1, 7, 7, 7]
             if pretrained_conv1.size(1) == 1:
                 # Expandir pesos replicando el canal único a todos los canales de entrada
                 new_conv1 = pretrained_conv1.repeat(1, in_channels, 1, 1, 1)
                 # Normalizar para mantener la magnitud de activación similar
                 new_conv1 = new_conv1 / in_channels
-                pretrained_dict['conv1.weight'] = new_conv1
+                pretrained_dict["conv1.weight"] = new_conv1
                 print(f"Primera capa convolucional adaptada de 1 a {in_channels} canales")
-        
+
         # Actualizar los pesos del modelo
         model_dict.update(pretrained_dict)
         model.load_state_dict(model_dict, strict=False)
-        
+
         print("Modelo ResNet-18 3D cargado con pesos preentrenados de MedicalNet")
-    
+
     return model

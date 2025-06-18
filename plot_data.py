@@ -25,7 +25,7 @@ def animate_images(train_loader, interval=500):
 
     iterator = iter(train_loader)
     for batch_imgs, batch_labels in iterator:
-        for img, label in zip(batch_imgs, batch_labels):
+        for img, label in zip(batch_imgs, batch_labels, strict=False):
             images.append(img.numpy())
             labels.append(label.item())
 
@@ -50,9 +50,9 @@ def plot_data(config_path, gpu_id=None):
 
     # Configurar dispositivo
     if gpu_id is not None and torch.cuda.is_available():
-        device = torch.device(f"cuda:{gpu_id}")
+        torch.device(f"cuda:{gpu_id}")
     else:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Obtener parámetros del modelo
     model_config = config.get("model", {})

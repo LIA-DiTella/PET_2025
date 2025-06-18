@@ -1,4 +1,3 @@
-import torch
 from torch import nn
 from torchvision import models
 
@@ -40,7 +39,7 @@ class ResNet18_2D(nn.Module):
         super().__init__()
 
         # Cargar modelo pre-entrenado
-        self.model = models.resnet18(weights='IMAGENET1K_V1' if pretrained else None)
+        self.model = models.resnet18(weights="IMAGENET1K_V1" if pretrained else None)
 
         # Congelar parámetros si feature_extract=True
         # set_parameter_requires_grad(self.model, feature_extract)
@@ -118,5 +117,9 @@ def get_resnet18_2d(config):
     feature_extract = config.get("feature_extract", False)
     dropout_rate = config.get("dropout_rate", 0.6)
 
-    return ResNet18_2D(num_classes=num_classes, pretrained=pretrained,
-                       feature_extract=feature_extract, dropout_rate=dropout_rate)
+    return ResNet18_2D(
+        num_classes=num_classes,
+        pretrained=pretrained,
+        feature_extract=feature_extract,
+        dropout_rate=dropout_rate,
+    )
