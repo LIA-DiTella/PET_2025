@@ -330,7 +330,11 @@ class PETDataset(Dataset):
                 continue
 
             # Procesar etiqueta
-            label = self._label_to_index(row[diagnosis_col], self.class_count)
+            try:
+                label = self._label_to_index(row[diagnosis_col], self.class_count)
+            except ValueError as e:
+                continue
+
 
             # Cargar y procesar imagen
             try:
