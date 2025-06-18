@@ -366,37 +366,43 @@ class PETDataset(Dataset):
                 if img_data.ndim != 3 and img_data.ndim != 4:
                     raise ValueError(f"Formato de imagen no soportado: {img_data.ndim} dimensiones")
 
-                if img_data.ndim == 4:
-                    # dynamic_index = 0
-                    # dynamic_index = img_data.shape[3] // 2  # Seleccionar el corte medio si es dinámico
-                    # img_data = img_data[:, :, :, dynamic_index]
-                    if count == 0 and self.verbose:
-                        print(f"Imagen dinámica detectada: {img_path} con {img_data.shape[3]} volúmenes")
+                # if img_data.ndim == 4:
+                #     # dynamic_index = 0
+                #     # dynamic_index = img_data.shape[3] // 2  # Seleccionar el corte medio si es dinámico
+                #     # img_data = img_data[:, :, :, dynamic_index]
+                #     if count == 0 and self.verbose:
+                #         print(f"Imagen dinámica detectada: {img_path} con {img_data.shape[3]} volúmenes")
 
-                    if self.dynamic_all:
-                        for i in range(img_data.shape[3]):
-                            img_data_slice = img_data[:, :, :, i]
-                            image = self.process_image(img_data_slice)
-                            # Añadir a las muestras
-                            self.samples.append((image, label))
-                            count += 1
-                    else:
-                        # img_data = np.mean(img_data, axis=3)  # Promediar a lo largo del eje temporal si es dinámico
-                        if count == 0 and self.verbose:
-                            print(f"Usando el primer volumen de la imagen dinámica: {img_path}")
+                #     if self.dynamic_all:
+                #         for i in range(img_data.shape[3]):
+                #             img_data_slice = img_data[:, :, :, i]
+                #             image = self.process_image(img_data_slice)
+                #             # Añadir a las muestras
+                #             self.samples.append((image, label))
+                #             count += 1
+                #     else:
+                #         # img_data = np.mean(img_data, axis=3)  # Promediar a lo largo del eje temporal si es dinámico
+                #         if count == 0 and self.verbose:
+                #             print(f"Usando el primer volumen de la imagen dinámica: {img_path}")
 
-                        img_data = img_data[:, :, :, 0]  # Usar solo el primer volumen
-                        image = self.process_image(img_data)
-                        # Añadir a las muestras
-                        self.samples.append((image, label))
-                        count += 1
-                else:
-                    if count == 0 and self.verbose:
-                        print("not dynamic PET")
-                    image = self.process_image(img_data)
-                    # Añadir a las muestras
-                    self.samples.append((image, label))
-                    count += 1
+                #         img_data = img_data[:, :, :, 0]  # Usar solo el primer volumen
+                #         image = self.process_image(img_data)
+                #         # Añadir a las muestras
+                #         self.samples.append((image, label))
+                #         count += 1
+                # else:
+                #     if count == 0 and self.verbose:
+                #         print("not dynamic PET")
+                #     image = self.process_image(img_data)
+                #     # Añadir a las muestras
+                #     self.samples.append((image, label))
+                #     count += 1
+
+                img_data = img_data[:, :, :, 0]  # Usar solo el primer volumen
+                image = self.process_image(img_data)
+                # Añadir a las muestras
+                self.samples.append((image, label))
+                count += 1
 
             except Exception as e:
                 if self.verbose:
