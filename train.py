@@ -55,7 +55,7 @@ def get_model(model_name, dimension, config):
     raise ValueError(msg)
 
 
-def train_model(config_path, gpu_id=None):
+def train_model(config_path, gpu_id=None, data_loaders=None):
     """Entrena un modelo según la configuración proporcionada.
 
     Args:
@@ -101,7 +101,10 @@ def train_model(config_path, gpu_id=None):
     model = get_model(model_name, dimension, model_config)
 
     # Obtener data loaders
-    train_loader, val_loader, test_loader = get_data_loaders(config)
+    if data_loaders:
+        train_loader, val_loader, test_loader = data_loaders
+    else:
+        train_loader, val_loader, test_loader = get_data_loaders(config)
 
     # Crear entrenador
     trainer = Trainer(

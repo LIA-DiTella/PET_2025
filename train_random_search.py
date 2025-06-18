@@ -8,6 +8,8 @@ import yaml
 from train import train_model
 from utils.config_utils import load_config
 
+from data.dataset import get_data_loaders
+
 
 def random_search(config_path: str, n_runs: int = 5):
     base_config = load_config(config_path)
@@ -53,7 +55,7 @@ def random_search(config_path: str, n_runs: int = 5):
         config["experiment"]["config_path"] = config_save_path
 
         print(f"\n🔁 Ejecutando experimento: {run_name}")
-        result = train_model(config_save_path, gpu_id=None)
+        result = train_model(config_save_path, gpu_id=None, data_loaders=get_data_loaders(config))
         results.append(result)
 
     return results
