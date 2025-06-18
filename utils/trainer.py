@@ -455,7 +455,7 @@ class Trainer:
 
             target_for_loss = target
 
-            print(f"Loss function type: {type(self.criterion)}")
+            # print(f"Loss function type: {type(self.criterion)}")
             loss = self.criterion(output, target_for_loss)
 
             # Backward pass
