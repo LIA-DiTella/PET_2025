@@ -103,8 +103,6 @@ class Trainer:
 
         # Función de pérdida
         self.criterion = self._get_loss_function(class_weights=class_weights)
-        print(f"Loss function configured: {type(self.criterion)}")
-
         # Optimizador
         self.optimizer = self._get_optimizer()
 
