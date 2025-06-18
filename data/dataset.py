@@ -56,6 +56,7 @@ class PETDataset(Dataset):
         is_3d=False,
         class_count=2,
         config=None,
+        dynamic_all=False,
     ) -> None:
         """Inicializa el dataset.
 
@@ -78,6 +79,7 @@ class PETDataset(Dataset):
         self.class_count = class_count  # CN, MCI, AD
         self.verbose = verbose
         self.is_3d = is_3d
+        self.dynamic_all = dynamic_all  # Si es True, procesa todos los cortes de un volumen dinámico
 
         # Cargar metadatos
         df = pd.read_csv(csv_path)
@@ -152,6 +154,101 @@ class PETDataset(Dataset):
 
         # Si llegamos aquí, no se encontró el archivo
         return None
+
+    def process_image(self, img_data):
+        # Seleccionar cortes según el método especificado
+        if self.slice_selection == "middle":
+            # Corte central y adyacentes
+            middle_idx = img_data.shape[2] // 2
+            start_idx = middle_idx - (self.num_slices // 2)
+            end_idx = start_idx + self.num_slices
+
+            # Asegurar índices en rango
+            start_idx = max(0, start_idx)
+            end_idx = min(img_data.shape[2], end_idx)
+
+            slice_indices = list(range(start_idx, end_idx))
+
+        elif self.slice_selection == "uniform":
+            # Seleccionar cortes uniformemente distribuidos
+            # 16 imágenes igualmente separadas entre ellas a lo largo del eje axial (redondeando al slice más cercano).
+            slice_indices = np.linspace(
+                0, img_data.shape[2] - 1, self.num_slices, dtype=int
+            ).tolist()
+
+        elif self.slice_selection == "all":
+            # Tomar todos los cortes
+            slice_indices = list(range(0, img_data.shape[2]))
+
+        else:
+            raise ValueError(
+                f"Método de selección de cortes desconocido: {self.slice_selection}"
+            )
+
+        # Crear un array con todos los cortes seleccionados de una vez
+        slices_data = np.array(
+            [
+                img_data[:, :, idx]
+                for idx in slice_indices
+                if 0 <= idx < img_data.shape[2]
+            ]
+        )
+
+        # Normalizar todos los cortes de una vez (por corte individual)
+        # for i in range(len(slices_data)):
+        #     slice_min, slice_max = slices_data[i].min(), slices_data[i].max()
+        #     if slice_max > slice_min:
+        #         slices_data[i] = (slices_data[i] - slice_min) / (slice_max - slice_min)
+
+        image = np.zeros((128, 128, len(slices_data)), dtype=np.float32)
+        for i in range(len(slices_data)):
+            slice_img = resize(slices_data[i], (128, 128), anti_aliasing=False)
+
+            # if augmentation is needed, apply it here
+            if self.mode == "train":
+
+                ts = transforms.Compose(
+                    [
+                        transforms.ToPILImage(),
+                        transforms.RandomHorizontalFlip(),
+                        transforms.RandomVerticalFlip(),
+                        transforms.RandomRotation(10),
+                        transforms.ToTensor(),
+                    ]
+                )
+
+                slice_img = ts(slice_img)
+
+            image[:, :, i] = slice_img
+
+        if not self.is_3d:
+            # Make grid in 2D image, handling cases with fewer slices
+            if len(slices_data) == 1:
+                # Si solo hay un corte, usarlo directamente
+                image = image[:, :, 0]
+            else:
+                # Número de columnas por fila (máximo 4)
+                cols_per_row = min(4, len(slices_data))
+                rows = []
+
+                # Crear filas
+                for j in range(0, len(slices_data), cols_per_row):
+                    # Para cada fila, obtener tantos cortes como sea posible sin exceder el límite
+                    available_cols = min(cols_per_row, len(slices_data) - j)
+                    row_slices = [image[:, :, j + i] for i in range(available_cols)]
+
+                    # Si no hay suficientes para completar la fila, añadir arrays vacíos
+                    while len(row_slices) < cols_per_row:
+                        # Usar arrays de ceros con la misma forma que los otros cortes
+                        row_slices.append(np.zeros_like(row_slices[0]))
+
+                    # Concatenar horizontalmente para formar la fila
+                    rows.append(np.concatenate(row_slices, axis=1))
+
+                # Concatenar verticalmente todas las filas
+                image = np.concatenate(rows, axis=0)
+        
+        return image
 
     def _load_dataset(self) -> None:
         """Carga información de las imágenes y prepara dataset."""
@@ -238,7 +335,7 @@ class PETDataset(Dataset):
             # Procesar etiqueta
             try:
                 label = self._label_to_index(row[diagnosis_col], self.class_count)
-            except Exception as e:
+            except Exception as _:
                 # if self.verbose:
                 # print(f"Error al procesar etiqueta '{row[diagnosis_col]}': {e}")
                 continue
@@ -247,6 +344,13 @@ class PETDataset(Dataset):
             try:
                 nifti = nib.load(img_path)
                 img_data = nifti.get_fdata()
+
+                if count == 0 and self.verbose:
+                    print(f"Cargando imagen: {img_path}")
+                    print(f"Dimensiones de la imagen: {img_data.shape}")
+                    hdr = nifti.header
+                    print(f"Header de la imagen: {hdr}")
+
 
                 if self.verbose and count == 0:
                     print(f"Cargado volumen de forma: {img_data.shape}")
@@ -257,103 +361,26 @@ class PETDataset(Dataset):
 
                 if img_data.ndim == 4:
                     # dynamic_index = 0
-
                     # dynamic_index = img_data.shape[3] // 2  # Seleccionar el corte medio si es dinámico
                     # img_data = img_data[:, :, :, dynamic_index]
-
-                    img_data = np.mean(img_data, axis=3)  # Promediar a lo largo del eje temporal si es dinámico
-
-                # Seleccionar cortes según el método especificado
-                if self.slice_selection == "middle":
-                    # Corte central y adyacentes
-                    middle_idx = img_data.shape[2] // 2
-                    start_idx = middle_idx - (self.num_slices // 2)
-                    end_idx = start_idx + self.num_slices
-
-                    # Asegurar índices en rango
-                    start_idx = max(0, start_idx)
-                    end_idx = min(img_data.shape[2], end_idx)
-
-                    slice_indices = list(range(start_idx, end_idx))
-
-                elif self.slice_selection == "uniform":
-                    # Seleccionar cortes uniformemente distribuidos
-                    # 16 imágenes igualmente separadas entre ellas a lo largo del eje axial (redondeando al slice más cercano).
-                    slice_indices = np.linspace(
-                        0, img_data.shape[2] - 1, self.num_slices, dtype=int
-                    ).tolist()
-
-                elif self.slice_selection == "all":
-                    # Tomar todos los cortes
-                    slice_indices = list(range(0, img_data.shape[2]))
-
-                else:
-                    raise ValueError(
-                        f"Método de selección de cortes desconocido: {self.slice_selection}"
-                    )
-
-                # Crear un array con todos los cortes seleccionados de una vez
-                slices_data = np.array(
-                    [img_data[:, :, idx] for idx in slice_indices if 0 <= idx < img_data.shape[2]]
-                )
-
-                # Normalizar todos los cortes de una vez (por corte individual)
-                # for i in range(len(slices_data)):
-                #     slice_min, slice_max = slices_data[i].min(), slices_data[i].max()
-                #     if slice_max > slice_min:
-                #         slices_data[i] = (slices_data[i] - slice_min) / (slice_max - slice_min)
-
-                image = np.zeros((128, 128, len(slices_data)), dtype=np.float32)
-                for i in range(len(slices_data)):
-                    slice_img = resize(slices_data[i], (128, 128), anti_aliasing=False)
-
-                    # if augmentation is needed, apply it here
-                    if self.mode == "train":
-
-                        ts = transforms.Compose(
-                            [
-                                transforms.ToPILImage(),
-                                transforms.RandomHorizontalFlip(),
-                                transforms.RandomVerticalFlip(),
-                                transforms.RandomRotation(10),
-                                transforms.ToTensor(),
-                            ]
-                        )
-
-                        slice_img = ts(slice_img)
-
-                    image[:, :, i] = slice_img
-
-                if not self.is_3d:
-                    # Make grid in 2D image, handling cases with fewer slices
-                    if len(slices_data) == 1:
-                        # Si solo hay un corte, usarlo directamente
-                        image = image[:, :, 0]
+                    if self.dynamic_all:
+                        for i in range(img_data.shape[3]):
+                            img_data_slice = img_data[:, :, :, i]
+                            image = self.process_image(img_data_slice)
+                            # Añadir a las muestras
+                            self.samples.append((image, label))
+                            count += 1
                     else:
-                        # Número de columnas por fila (máximo 4)
-                        cols_per_row = min(4, len(slices_data))
-                        rows = []
-
-                        # Crear filas
-                        for j in range(0, len(slices_data), cols_per_row):
-                            # Para cada fila, obtener tantos cortes como sea posible sin exceder el límite
-                            available_cols = min(cols_per_row, len(slices_data) - j)
-                            row_slices = [image[:, :, j + i] for i in range(available_cols)]
-
-                            # Si no hay suficientes para completar la fila, añadir arrays vacíos
-                            while len(row_slices) < cols_per_row:
-                                # Usar arrays de ceros con la misma forma que los otros cortes
-                                row_slices.append(np.zeros_like(row_slices[0]))
-
-                            # Concatenar horizontalmente para formar la fila
-                            rows.append(np.concatenate(row_slices, axis=1))
-
-                        # Concatenar verticalmente todas las filas
-                        image = np.concatenate(rows, axis=0)
-
-                # Añadir a las muestras
-                self.samples.append((image, label))
-                count += 1
+                        img_data = np.mean(img_data, axis=3)  # Promediar a lo largo del eje temporal si es dinámico
+                        image = self.process_image(img_data)
+                        # Añadir a las muestras
+                        self.samples.append((image, label))
+                        count += 1
+                else:
+                    image = self.process_image(img_data)
+                    # Añadir a las muestras
+                    self.samples.append((image, label))
+                    count += 1
 
             except Exception as e:
                 if self.verbose:
