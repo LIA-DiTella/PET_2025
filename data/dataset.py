@@ -240,7 +240,7 @@ class PETDataset(Dataset):
                 label = self._label_to_index(row[diagnosis_col], self.class_count)
             except Exception as e:
                 # if self.verbose:
-                    # print(f"Error al procesar etiqueta '{row[diagnosis_col]}': {e}")
+                # print(f"Error al procesar etiqueta '{row[diagnosis_col]}': {e}")
                 continue
 
             # Cargar y procesar imagen
@@ -292,15 +292,29 @@ class PETDataset(Dataset):
                 )
 
                 # Normalizar todos los cortes de una vez (por corte individual)
-                for i in range(len(slices_data)):
-                    slice_min, slice_max = slices_data[i].min(), slices_data[i].max()
-                    if slice_max > slice_min:
-                        slices_data[i] = (slices_data[i] - slice_min) / (slice_max - slice_min)
+                # for i in range(len(slices_data)):
+                #     slice_min, slice_max = slices_data[i].min(), slices_data[i].max()
+                #     if slice_max > slice_min:
+                #         slices_data[i] = (slices_data[i] - slice_min) / (slice_max - slice_min)
 
-                # Redimensionar todos los cortes a 512x512
                 image = np.zeros((128, 128, len(slices_data)), dtype=np.float32)
                 for i in range(len(slices_data)):
-                    image[:, :, i] = resize(slices_data[i], (128, 128), anti_aliasing=True)
+                    slice_img = resize(slices_data[i], (128, 128), anti_aliasing=False)
+
+                    # if augmentation is needed, apply it here
+                    if self.mode == "train":
+
+                        ts = transforms.Compose(
+                            [
+                                transforms.ToPILImage(),
+                                transforms.RandomHorizontalFlip(),
+                                transforms.RandomVerticalFlip(),
+                                transforms.RandomRotation(10),
+                                transforms.ToTensor(),
+                            ]
+                        )
+                        
+                    image[:, :, i] = slice_img
 
                 if not self.is_3d:
                     # Make grid in 2D image, handling cases with fewer slices
