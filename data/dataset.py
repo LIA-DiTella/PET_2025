@@ -3,6 +3,7 @@ import os
 import nibabel as nib
 import numpy as np
 import pandas as pd
+from nilearn import image as nli
 
 # import torch
 from skimage.transform import resize
@@ -79,7 +80,9 @@ class PETDataset(Dataset):
         self.class_count = class_count  # CN, MCI, AD
         self.verbose = verbose
         self.is_3d = is_3d
-        self.dynamic_all = dynamic_all  # Si es True, procesa todos los cortes de un volumen dinámico
+        self.dynamic_all = (
+            dynamic_all  # Si es True, procesa todos los cortes de un volumen dinámico
+        )
 
         # Cargar metadatos
         df = pd.read_csv(csv_path)
@@ -181,17 +184,11 @@ class PETDataset(Dataset):
             slice_indices = list(range(0, img_data.shape[2]))
 
         else:
-            raise ValueError(
-                f"Método de selección de cortes desconocido: {self.slice_selection}"
-            )
+            raise ValueError(f"Método de selección de cortes desconocido: {self.slice_selection}")
 
         # Crear un array con todos los cortes seleccionados de una vez
         slices_data = np.array(
-            [
-                img_data[:, :, idx]
-                for idx in slice_indices
-                if 0 <= idx < img_data.shape[2]
-            ]
+            [img_data[:, :, idx] for idx in slice_indices if 0 <= idx < img_data.shape[2]]
         )
 
         # Normalizar todos los cortes de una vez (por corte individual)
@@ -206,7 +203,6 @@ class PETDataset(Dataset):
 
             # if augmentation is needed, apply it here
             if self.mode == "train":
-
                 ts = transforms.Compose(
                     [
                         transforms.ToPILImage(),
@@ -247,7 +243,7 @@ class PETDataset(Dataset):
 
                 # Concatenar verticalmente todas las filas
                 image = np.concatenate(rows, axis=0)
-        
+
         return image
 
     def _load_dataset(self) -> None:
@@ -342,15 +338,19 @@ class PETDataset(Dataset):
 
             # Cargar y procesar imagen
             try:
-                nifti = nib.load(img_path)
-                img_data = nifti.get_fdata()
+                # nifti = nib.load(img_path)
+                # img_data = nifti.get_fdata()
+
+                nifti = nli.load_img(img_path)  # Usar nilearn para cargar imágenes NIfTI
+                TR = nifti.header["pixdim"][4]
+                func_d = nli.clean_img(nifti, detrend=True, standardize=True, t_r=TR)
+                img_data = func_d.get_fdata()
 
                 if count == 0 and self.verbose:
                     print(f"Cargando imagen: {img_path}")
                     print(f"Dimensiones de la imagen: {img_data.shape}")
                     hdr = nifti.header
                     print(f"Header de la imagen: {hdr}")
-
 
                 if self.verbose and count == 0:
                     print(f"Cargado volumen de forma: {img_data.shape}")
@@ -371,7 +371,12 @@ class PETDataset(Dataset):
                             self.samples.append((image, label))
                             count += 1
                     else:
-                        img_data = np.mean(img_data, axis=3)  # Promediar a lo largo del eje temporal si es dinámico
+                        # img_data = np.mean(img_data, axis=3)  # Promediar a lo largo del eje temporal si es dinámico
+
+                        img_data = nli.mean_img(
+                            nli_img
+                        )  # Usar nilearn para promediar el volumen dinámico
+
                         image = self.process_image(img_data)
                         # Añadir a las muestras
                         self.samples.append((image, label))
