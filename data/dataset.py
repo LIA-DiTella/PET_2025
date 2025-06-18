@@ -1,6 +1,6 @@
 import os
 
-import nibabel as nib
+# import nibabel as nib
 import numpy as np
 import pandas as pd
 import torch
@@ -161,7 +161,7 @@ class PETDataset(Dataset):
 
     def process_image(self, img_data):
         # Seleccionar cortes según el método especificado
-        
+
         # if self.mode == "train":
         #     # augmentación de datos
         #     ts = transforms.Compose(
@@ -171,6 +171,9 @@ class PETDataset(Dataset):
         #         ]
         #     )
         #     img_data = ts(img_data)
+
+        # z-score normalization
+        img_data = (img_data - np.mean(img_data)) / np.std(img_data)
 
         if self.slice_selection == "middle":
             # Corte central y adyacentes
@@ -216,30 +219,26 @@ class PETDataset(Dataset):
 
         if not self.is_3d:
             # Make grid in 2D image, handling cases with fewer slices
-            if len(slices_data) == 1:
-                # Si solo hay un corte, usarlo directamente
-                image = image[:, :, 0]
-            else:
-                # Número de columnas por fila (máximo 4)
-                cols_per_row = min(4, len(slices_data))
-                rows = []
+            # Número de columnas por fila
+            cols_per_row = min(4, len(slices_data))
+            rows = []
 
-                # Crear filas
-                for j in range(0, len(slices_data), cols_per_row):
-                    # Para cada fila, obtener tantos cortes como sea posible sin exceder el límite
-                    available_cols = min(cols_per_row, len(slices_data) - j)
-                    row_slices = [image[:, :, j + i] for i in range(available_cols)]
+            # Crear filas
+            for j in range(0, len(slices_data), cols_per_row):
+                # Para cada fila, obtener tantos cortes como sea posible sin exceder el límite
+                available_cols = min(cols_per_row, len(slices_data) - j)
+                row_slices = [image[:, :, j + i] for i in range(available_cols)]
 
-                    # Si no hay suficientes para completar la fila, añadir arrays vacíos
-                    while len(row_slices) < cols_per_row:
-                        # Usar arrays de ceros con la misma forma que los otros cortes
-                        row_slices.append(np.zeros_like(row_slices[0]))
+                # Si no hay suficientes para completar la fila, añadir arrays vacíos
+                while len(row_slices) < cols_per_row:
+                    # Usar arrays de ceros con la misma forma que los otros cortes
+                    row_slices.append(np.zeros_like(row_slices[0]))
 
-                    # Concatenar horizontalmente para formar la fila
-                    rows.append(np.concatenate(row_slices, axis=1))
+                # Concatenar horizontalmente para formar la fila
+                rows.append(np.concatenate(row_slices, axis=1))
 
-                # Concatenar verticalmente todas las filas
-                image = np.concatenate(rows, axis=0)
+            # Concatenar verticalmente todas las filas
+            image = np.concatenate(rows, axis=0)
 
         return image
 
@@ -396,11 +395,13 @@ class PETDataset(Dataset):
 
                 if img_data.ndim == 4:
                     # img_data = img_data[:, :, :, 0]  # Usar solo el primer volumen
-                    img_data = np.mean(img_data, axis=3)  # Promediar a lo largo del eje temporal si es dinámico
+                    img_data = np.mean(
+                        img_data, axis=3
+                    )  # Promediar a lo largo del eje temporal si es dinámico
 
                 elif img_data.ndim != 3:
                     raise ValueError(f"Formato de imagen no soportado: {img_data.ndim} dimensiones")
-                
+
                 image = self.process_image(img_data)
                 # Añadir a las muestras
                 self.samples.append((image, label))
