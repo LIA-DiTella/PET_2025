@@ -1,6 +1,10 @@
-import random
-import copy
 import argparse
+import copy
+import random
+from pathlib import Path
+
+import yaml
+
 from train import train_model
 from utils.config_utils import load_config
 
@@ -41,7 +45,11 @@ def random_search(config_path: str, n_runs: int = 5):
         config["experiment"]["name"] = run_name
 
         # save config
-        config_save_path = f"configs/random_search/{run_name}.yaml"
+        config_save_path = Path(config["experiment"]["base_dir"]) / "configs" / f"{run_name}.yaml"
+        config_save_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(config_save_path, "w") as f:
+            yaml.dump(config, f)
+            
         config["experiment"]["config_path"] = config_save_path
 
         print(f"\n🔁 Ejecutando experimento: {run_name}")
