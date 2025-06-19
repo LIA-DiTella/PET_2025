@@ -10,7 +10,7 @@ from train import train_model
 from utils.config_utils import load_config
 
 
-def random_search(config_path: str, n_runs: int = 5):
+def random_search(config_path: str, n_runs: int = 5, gpu_id: int = None):
     base_config = load_config(config_path)
 
     # Espacios de búsqueda
@@ -93,7 +93,7 @@ def random_search(config_path: str, n_runs: int = 5):
         config["experiment"]["config_path"] = config_save_path
 
         print(f"\n🔁 Ejecutando experimento: {run_name}")
-        result = train_model(config_save_path, gpu_id=None, data_loaders=data_loaders)
+        result = train_model(config_save_path, gpu_id=gpu_id, data_loaders=data_loaders)
         results.append(result)
 
     return results
@@ -103,6 +103,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Random Search para ResNet-18 2D en PET")
     parser.add_argument("--config", type=str, required=True, help="Ruta al YAML base")
     parser.add_argument("--n", type=int, default=5, help="Cantidad de combinaciones a probar")
+    parser.add_argument("--gpu", type=int, default=None, help="ID de GPU a usar (por defecto, usa cuda si está disponible)")
     args = parser.parse_args()
 
-    all_results = random_search(args.config, n_runs=args.n)
+    all_results = random_search(args.config, n_runs=args.n, gpu_id=args.gpu)
