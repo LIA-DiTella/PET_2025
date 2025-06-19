@@ -12,6 +12,10 @@ from utils.config_utils import save_config
 # Importar utilidades
 from utils.evaluation_utils import calculate_metrics, save_results_to_csv
 
+# Importar modelos
+from models.inceptionv3.inceptionv3_2d import InceptionV3_2D
+
+
 # Importar wandb para logging de experimentos
 try:
     import wandb
@@ -451,17 +455,19 @@ class Trainer:
         pbar = tqdm(train_loader, desc=f"Epoch {epoch}")
         for batch_idx, (data, target) in enumerate(pbar):
             data, target = data.to(self.device), target.to(self.device)
+            target_for_loss = target
 
             # Forward pass
             self.optimizer.zero_grad()
 
             output = self.model(data)
-
-            target_for_loss = target
-            # print(f"Output shape: {output.shape}")
-            # print(f"Target shape: {target_for_loss.shape}")
-            # print(f"Loss function type: {type(self.criterion)}")
-            loss = self.criterion(output, target_for_loss)
+            if type(output) is tuple and isinstance(self.model, InceptionV3_2D): 
+                output = output[0]
+                aux_output = output[1]
+                loss = self.criterion(output, target_for_loss) + 0.4 * self.criterion(aux_output, target_for_loss)
+            else:
+                aux_output = None
+                loss = self.criterion(output, target_for_loss)
 
             # Backward pass
             loss.backward()
@@ -512,15 +518,14 @@ class Trainer:
         with torch.no_grad():
             for data, target in data_loader:
                 data, target = data.to(self.device), target.to(self.device)
+                target_for_loss = target
 
                 # Forward pass
                 output = self.model(data)
-
-                target_for_loss = target
-                # print(f"Output shape: {output.shape}")
-                # print(f"Target shape: {target_for_loss.shape}")
-
-                # Calcular pérdida
+                
+                if type(self.model) is tuple and isinstance(self.model, InceptionV3_2D):
+                    output = output[0]
+                    
                 loss = self.criterion(output, target_for_loss)
                 total_loss += loss.item()
 
