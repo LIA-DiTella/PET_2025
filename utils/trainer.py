@@ -463,11 +463,11 @@ class Trainer:
             output = self.model(data)
             if type(output) is tuple and isinstance(self.model, InceptionV3_2D): 
                 output = output[0]
-                aux_output = output[1]
-                loss = self.criterion(output, target_for_loss) + 0.4 * self.criterion(aux_output, target_for_loss)
-            else:
-                aux_output = None
-                loss = self.criterion(output, target_for_loss)
+                # aux_output = output[1]
+                # loss = self.criterion(output, target_for_loss) + 0.4 * self.criterion(aux_output, target_for_loss)
+            # else:
+                # aux_output = None
+            loss = self.criterion(output, target_for_loss)
 
             # Backward pass
             loss.backward()
@@ -522,10 +522,10 @@ class Trainer:
 
                 # Forward pass
                 output = self.model(data)
-                
+
                 if type(self.model) is tuple and isinstance(self.model, InceptionV3_2D):
                     output = output[0]
-                    
+
                 loss = self.criterion(output, target_for_loss)
                 total_loss += loss.item()
 
