@@ -47,45 +47,45 @@ class InceptionV3_2D(nn.Module):
         # Congelar parámetros si feature_extract=True
         set_parameter_requires_grad(self.model, feature_extract)
 
-        # Modificar la primera capa convolucional para aceptar imágenes de 1 canal (PET scans)
-        # Guardamos los pesos originales para inicializar el primer canal
-        if pretrained:
-            original_conv = self.model.Conv2d_1a_3x3.conv
-            original_weights = original_conv.weight.data
+        # # Modificar la primera capa convolucional para aceptar imágenes de 1 canal (PET scans)
+        # # Guardamos los pesos originales para inicializar el primer canal
+        # if pretrained:
+        #     original_conv = self.model.Conv2d_1a_3x3.conv
+        #     original_weights = original_conv.weight.data
 
-            # Creamos una nueva capa con un canal de entrada
-            self.model.Conv2d_1a_3x3.conv = nn.Conv2d(
-                1,
-                32,
-                kernel_size=3,
-                stride=2,
-                padding=0,
-                bias=False,
-            )
+        #     # Creamos una nueva capa con un canal de entrada
+        #     self.model.Conv2d_1a_3x3.conv = nn.Conv2d(
+        #         1,
+        #         32,
+        #         kernel_size=3,
+        #         stride=2,
+        #         padding=0,
+        #         bias=False,
+        #     )
 
-            # Inicializamos con el promedio de los tres canales originales
-            self.model.Conv2d_1a_3x3.conv.weight.data = torch.mean(
-                original_weights,
-                dim=1,
-                keepdim=True,
-            )
-        else:
-            self.model.Conv2d_1a_3x3.conv = nn.Conv2d(
-                1,
-                32,
-                kernel_size=3,
-                stride=2,
-                padding=0,
-                bias=False,
-            )
+        #     # Inicializamos con el promedio de los tres canales originales
+        #     self.model.Conv2d_1a_3x3.conv.weight.data = torch.mean(
+        #         original_weights,
+        #         dim=1,
+        #         keepdim=True,
+        #     )
+        # else:
+        #     self.model.Conv2d_1a_3x3.conv = nn.Conv2d(
+        #         1,
+        #         32,
+        #         kernel_size=3,
+        #         stride=2,
+        #         padding=0,
+        #         bias=False,
+        #     )
 
         # Modificar las capas de clasificación final
         in_features = self.model.fc.in_features
+        self.model.dropout = nn.Dropout(dropout_rate)
+        
         self.model.fc = nn.Sequential(
-            nn.Dropout(dropout_rate),
-            nn.Linear(in_features, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, num_classes),
+            nn.Linear(in_features, num_classes),
+            nn.Softmax(dim=1)  # Asegurar salida de probabilidades
         )
 
         # Modificar la capa auxiliar si existe
