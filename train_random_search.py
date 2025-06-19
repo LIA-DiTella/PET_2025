@@ -14,10 +14,41 @@ def random_search(config_path: str, n_runs: int = 5):
     base_config = load_config(config_path)
 
     # Espacios de búsqueda
-    lr_list = [1e-4, 1e-5, 1e-6]
-    dropout_list = [0.3, 0.5, 0.6, 0.7]
-    batch_list = [16, 32, 64]
+    lr_list = [1e-3, 1e-4, 1e-5, 1e-6]
+    dropout_list = [0.0, 0.1, 0.3, 0.5, 0.6, 0.7]
+    batch_list = [2, 4, 8, 16]
     optimizers = ["adam", "sgd"]
+    """  
+    if sched_name == "cosine_annealing":
+        return optim.lr_scheduler.CosineAnnealingLR(
+            self.optimizer,
+            T_max=sched_config.get("t_max", self.epochs),
+            eta_min=sched_config.get("eta_min", 0),
+        )
+
+    if sched_name == "reduce_on_plateau":
+        return optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer,
+            mode=sched_config.get("mode", "min"),
+            factor=sched_config.get("factor", 0.1),
+            patience=sched_config.get("patience", 5),
+        )
+
+    if sched_name == "step_lr":
+        return optim.lr_scheduler.StepLR(
+            self.optimizer,
+            step_size=sched_config.get("step_size", 30),
+            gamma=sched_config.get("gamma", 0.1),
+        )
+    """
+    
+    scheduler_names = ["cosine_annealing", "reduce_on_plateau", "step_lr"]
+    scheduler_configs = [
+        {"t_max": 50, "eta_min": 0.00001},
+        {"mode": "min", "factor": 0.1, "patience": 5},
+        {"step_size": 30, "gamma": 0.1},
+    ]
+    
     feature_extract_options = [True, False]
 
     data_loaders = get_data_loaders(base_config)
@@ -42,6 +73,12 @@ def random_search(config_path: str, n_runs: int = 5):
         config["model"]["feature_extract"] = fe
         config["training"]["optimizer"]["name"] = opt
         config["training"]["optimizer"]["lr"] = lr
+
+        config["training"]["scheduler"]["name"] = random.choice(scheduler_names)
+        sched_index = scheduler_names.index(config["training"]["scheduler"]["name"])
+        for key, value in scheduler_configs[sched_index].items():
+            config["training"]["scheduler"][key] = value
+
         config["training"]["epochs"] = 50
         config["data"]["batch_size"] = batch
         config["experiment"]["name"] = run_name
