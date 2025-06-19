@@ -60,6 +60,7 @@ class PETDataset(Dataset):
         config=None,
         dynamic_all=False,
         output_size=(224, 224),
+        channels=3,
     ) -> None:
         """Inicializa el dataset.
 
@@ -86,6 +87,7 @@ class PETDataset(Dataset):
             dynamic_all  # Si es True, procesa todos los cortes de un volumen dinámico
         )
         self.output_size = output_size  # Tamaño de salida para las imágenes procesadas
+        self.channels = channels  # Número de canales de salida (1 para 2D, 3 para RGB)
 
         # Cargar metadatos
         df = pd.read_csv(csv_path)
@@ -486,7 +488,8 @@ class PETDataset(Dataset):
 
             # print(f"Imagen centrada: forma {img.shape}, etiqueta {label}")
             # img = transforms.functional.normalize(img, mean=np.mean([0.485, 0.456, 0.406]), std=np.mean([0.229, 0.224, 0.225]))  # Normalizar
-            img = img.repeat(3, 1, 1)
+            if not self.channels == 1:
+                img = img.repeat(self.channels, 1, 1)
 
             img = transforms.functional.normalize(
                 img, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
@@ -534,6 +537,7 @@ def get_data_loaders(config):
     num_workers = data_config.get("num_workers", 4)
     
     output_size = data_config.get("output_size", (224, 224))
+    channels = data_config.get("channels", 3)  # Número de canales de salida (1 para 2D, 3 para RGB)
 
     # Directorios y archivos
     data_dir = data_config.get("data_dir", "./data")
@@ -563,6 +567,7 @@ def get_data_loaders(config):
         limit=train_limit,
         config=config,
         output_size=output_size,
+        channels=channels,
     )
 
     val_dataset = (
@@ -577,6 +582,7 @@ def get_data_loaders(config):
             class_count=num_classes,
             limit=val_limit,
             output_size=output_size,
+            channels=channels,
         )
         if val_csv
         else None
@@ -594,6 +600,7 @@ def get_data_loaders(config):
             class_count=num_classes,
             limit=test_limit,
             output_size=output_size,
+            channels=channels,
         )
         if test_csv
         else None
