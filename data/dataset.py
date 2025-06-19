@@ -59,6 +59,7 @@ class PETDataset(Dataset):
         class_count=2,
         config=None,
         dynamic_all=False,
+        output_size=(224, 224),
     ) -> None:
         """Inicializa el dataset.
 
@@ -84,6 +85,7 @@ class PETDataset(Dataset):
         self.dynamic_all = (
             dynamic_all  # Si es True, procesa todos los cortes de un volumen dinámico
         )
+        self.output_size = output_size  # Tamaño de salida para las imágenes procesadas
 
         # Cargar metadatos
         df = pd.read_csv(csv_path)
@@ -397,7 +399,7 @@ class PETDataset(Dataset):
                     # img_data = img_data[:, :, :, 0]  # Usar solo el primer volumen
                     dynamic_index = img_data.shape[3] // 2  # Seleccionar el corte medio si es dinámico
                     img_data = img_data[:, :, :, dynamic_index]  # Usar el corte medio
-                    
+
                     # img_data = np.mean(
                     #     img_data, axis=3
                     # )  # Promediar a lo largo del eje temporal si es dinámico
@@ -475,9 +477,13 @@ class PETDataset(Dataset):
             # transforms.ToTensor(),
             # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 
-            img = transforms.functional.resize(img, (256, 256))
+            # img = transforms.functional.resize(img, (256, 256))
             # print(f"Imagen transformada: forma {img.shape}, etiqueta {label}")
-            img = transforms.functional.center_crop(img, (224, 224))
+            # img = transforms.functional.center_crop(img, (224, 224))
+            # img = transforms.functional.resize(img, (224, 224))
+
+            img = transforms.functional.resize(img, self.output_size)  # Redimensionar a tamaño de salida
+
             # print(f"Imagen centrada: forma {img.shape}, etiqueta {label}")
             # img = transforms.functional.normalize(img, mean=np.mean([0.485, 0.456, 0.406]), std=np.mean([0.229, 0.224, 0.225]))  # Normalizar
             img = img.repeat(3, 1, 1)
@@ -526,6 +532,8 @@ def get_data_loaders(config):
     is_3d = data_config.get("dimension", "2d") == "3d"
     batch_size = data_config.get("batch_size", 32)
     num_workers = data_config.get("num_workers", 4)
+    
+    output_size = data_config.get("output_size", (224, 224))
 
     # Directorios y archivos
     data_dir = data_config.get("data_dir", "./data")
@@ -554,6 +562,7 @@ def get_data_loaders(config):
         class_count=num_classes,
         limit=train_limit,
         config=config,
+        output_size=output_size,
     )
 
     val_dataset = (
@@ -567,6 +576,7 @@ def get_data_loaders(config):
             is_3d=is_3d,
             class_count=num_classes,
             limit=val_limit,
+            output_size=output_size,
         )
         if val_csv
         else None
@@ -583,6 +593,7 @@ def get_data_loaders(config):
             is_3d=is_3d,
             class_count=num_classes,
             limit=test_limit,
+            output_size=output_size,
         )
         if test_csv
         else None
