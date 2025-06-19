@@ -41,14 +41,14 @@ def random_search(config_path: str, n_runs: int = 5):
             gamma=sched_config.get("gamma", 0.1),
         )
     """
-    
+
     scheduler_names = ["cosine_annealing", "reduce_on_plateau", "step_lr"]
     scheduler_configs = [
         {"t_max": 50, "eta_min": 0.00001},
         {"mode": "min", "factor": 0.1, "patience": 5},
         {"step_size": 30, "gamma": 0.1},
     ]
-    
+
     feature_extract_options = [True, False]
 
     data_loaders = get_data_loaders(base_config)
@@ -63,9 +63,10 @@ def random_search(config_path: str, n_runs: int = 5):
         batch = random.choice(batch_list)
         opt = random.choice(optimizers)
         fe = random.choice(feature_extract_options)
+        model_name = config["model"]["name"].lower()
 
         # Nombre del experimento
-        run_name = f"rs_lr{lr}_do{dropout}_bs{batch}_{opt}_fe{fe}_{random.randint(1000, 9999)}"
+        run_name = f"{model_name}_rs_lr{lr}_do{dropout}_bs{batch}_{opt}_fe{fe}_{random.randint(1000, 9999)}"
 
         # Actualización de hiperparámetros
         config["wandb"]["name"] = run_name
