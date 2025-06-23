@@ -44,7 +44,9 @@ class ResNet18_3D(nn.Module):
 
         # Cargar modelo pre-entrenado
         # self.model = models.resnet18(weights="IMAGENET1K_V1" if pretrained else None)
-        self.model = models.video.r3d_18(weights=weights if (pretrained and weights == "KINETICS400_V1") else None)
+        self.model = models.video.r3d_18(
+            weights=weights if (pretrained and weights == "KINETICS400_V1") else None
+        )
 
         # Congelar parámetros si feature_extract=True
 

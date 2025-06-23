@@ -331,7 +331,7 @@ class PETDataset(Dataset):
             # Procesar etiqueta
             try:
                 label = self._label_to_index(row[diagnosis_col], self.class_count)
-            except ValueError as e:
+            except ValueError:
                 continue
 
             # Cargar y procesar imagen
@@ -399,7 +399,9 @@ class PETDataset(Dataset):
 
                 if img_data.ndim == 4:
                     # img_data = img_data[:, :, :, 0]  # Usar solo el primer volumen
-                    dynamic_index = img_data.shape[3] // 2  # Seleccionar el corte medio si es dinámico
+                    dynamic_index = (
+                        img_data.shape[3] // 2
+                    )  # Seleccionar el corte medio si es dinámico
                     img_data = img_data[:, :, :, dynamic_index]  # Usar el corte medio
 
                     # img_data = np.mean(
@@ -474,7 +476,9 @@ class PETDataset(Dataset):
         if self.transform:
             if not self.is_3d:
                 img = transforms.functional.to_tensor(img)  # Convertir a tensor
-                img = transforms.functional.resize(img, self.output_size)  # Redimensionar a tamaño de salida
+                img = transforms.functional.resize(
+                    img, self.output_size
+                )  # Redimensionar a tamaño de salida
 
                 # print(f"Imagen centrada: forma {img.shape}, etiqueta {label}")
                 # img = transforms.functional.normalize(img, mean=np.mean([0.485, 0.456, 0.406]), std=np.mean([0.229, 0.224, 0.225]))  # Normalizar
@@ -483,12 +487,14 @@ class PETDataset(Dataset):
 
                     img = transforms.functional.normalize(
                         img, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                    ) 
+                    )
 
             if self.is_3d:
                 # Para 3D, convertir a tensor y redimensionar
                 img = transforms.functional.to_tensor(img)
-                img = transforms.functional.resize(img, (self.output_size[0], self.output_size[1], self.num_slices))
+                img = transforms.functional.resize(
+                    img, (self.output_size[0], self.output_size[1], self.num_slices)
+                )
                 # Normalizar
                 img = transforms.functional.normalize(
                     img, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]

@@ -103,7 +103,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Random Search para ResNet-18 2D en PET")
     parser.add_argument("--config", type=str, required=True, help="Ruta al YAML base")
     parser.add_argument("--n", type=int, default=5, help="Cantidad de combinaciones a probar")
-    parser.add_argument("--gpu", type=int, default=None, help="ID de GPU a usar (por defecto, usa cuda si está disponible)")
+    parser.add_argument(
+        "--gpu",
+        type=int,
+        default=None,
+        help="ID de GPU a usar (por defecto, usa cuda si está disponible)",
+    )
     args = parser.parse_args()
 
     all_results = random_search(args.config, n_runs=args.n, gpu_id=args.gpu)

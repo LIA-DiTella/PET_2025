@@ -1,4 +1,3 @@
-import argparse
 import os
 import sys
 
@@ -46,9 +45,9 @@ model_config["num_classes"] = num_classes
 # Obtener data loaders
 train_loader, val_loader, test_loader = get_data_loaders(config)
 
+
 # Plot images from the training set
 def plot_images(data_loader, num_images=4):
-
     images = []
     labels = []
 
@@ -60,7 +59,7 @@ def plot_images(data_loader, num_images=4):
         labels.append(label)
     images = torch.stack(images)
     labels = torch.stack(labels)
-    
+
     fig, axes = plt.subplots(1, num_images, figsize=(15, 5))
     for i in range(num_images):
         img = images[i].squeeze().cpu().numpy()
@@ -71,10 +70,11 @@ def plot_images(data_loader, num_images=4):
             img = img[0]
         img = img[0]
 
-        axes[i].imshow(img, cmap='viridis')
+        axes[i].imshow(img, cmap="viridis")
         axes[i].set_title(f"Label: {torch.argmax(labels[i]).item()} - Shape: {img.shape}")
         axes[i].axis("off")
     plt.show()
+
 
 # Plot images from the training set
 plot_images(train_loader)
@@ -87,10 +87,7 @@ model = models.resnet18(weights="IMAGENET1K_V1")
 # model.fc = nn.Linear(model.fc.in_features, num_classes)
 
 model.dropout = nn.Dropout(p=0.6)  # Añadir dropout
-model.fc = nn.Sequential(
-    nn.Linear(model.fc.in_features, num_classes),
-    nn.Softmax(dim=1)
-)
+model.fc = nn.Sequential(nn.Linear(model.fc.in_features, num_classes), nn.Softmax(dim=1))
 
 model = model.to(device)
 
@@ -112,9 +109,11 @@ for images, labels in test_loader:
     print(f"ArgMax: {torch.argmax(outputs, dim=1)}")
 
     # Calcular matriz de confusión
-    cm = confusion_matrix(torch.argmax(labels, dim=1).cpu().numpy(),
-                          torch.argmax(outputs, dim=1).cpu().numpy(),
-                            labels=list(range(num_classes)))
+    cm = confusion_matrix(
+        torch.argmax(labels, dim=1).cpu().numpy(),
+        torch.argmax(outputs, dim=1).cpu().numpy(),
+        labels=list(range(num_classes)),
+    )
 
     print(f"Confusion Matrix:\n{cm}")
 
@@ -230,14 +229,10 @@ plt.tight_layout()
 plt.savefig("training_results.png")
 
 best_model = models.resnet18(weights="IMAGENET1K_V1")
-best_model.fc = nn.Sequential(
-    nn.Linear(best_model.fc.in_features, num_classes), nn.Softmax(dim=1)
-)
+best_model.fc = nn.Sequential(nn.Linear(best_model.fc.in_features, num_classes), nn.Softmax(dim=1))
 best_model = best_model.to(device)
 # Cargar el mejor modelo guardado
-best_model.load_state_dict(
-    torch.load(os.path.join(os.getcwd(), "checkpoints", "best_model.pth"))
-)
+best_model.load_state_dict(torch.load(os.path.join(os.getcwd(), "checkpoints", "best_model.pth")))
 # Evaluar el mejor modelo en el conjunto de prueba
 # best_model = model
 
@@ -266,12 +261,11 @@ with torch.no_grad():
 
 # Confusion matrix
 
+
 def plot_confusion_matrix(y_true, y_pred, classes, set_name="Test"):
     cm = confusion_matrix(y_true, y_pred)
     plt.figure(figsize=(10, 8))
-    sns.heatmap(
-        cm, annot=True, fmt="d", cmap="Blues", xticklabels=classes, yticklabels=classes
-    )
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=classes, yticklabels=classes)
     plt.xlabel("Predicted")
     plt.ylabel("True")
     plt.title("Confusion Matrix - " + set_name)
@@ -336,4 +330,4 @@ y_pred = np.array(y_pred)
 # Plotear matriz de confusión
 plot_confusion_matrix(y_true, y_pred, classes.split("_"), set_name="Test")
 
-# 
+#

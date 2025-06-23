@@ -1,4 +1,3 @@
-import torch
 from torch import nn
 from torchvision import models
 
@@ -82,10 +81,10 @@ class InceptionV3_2D(nn.Module):
         # Modificar las capas de clasificación final
         in_features = self.model.fc.in_features
         self.model.dropout = nn.Dropout(dropout_rate)
-        
+
         self.model.fc = nn.Sequential(
             nn.Linear(in_features, num_classes),
-            nn.Softmax(dim=1)  # Asegurar salida de probabilidades
+            nn.Softmax(dim=1),  # Asegurar salida de probabilidades
         )
 
         # Modificar la capa auxiliar si existe

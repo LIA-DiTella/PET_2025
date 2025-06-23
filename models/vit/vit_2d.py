@@ -72,8 +72,7 @@ class ViT_2D(nn.Module):
         in_features = self.model.heads.head.in_features
 
         self.model.heads.head = nn.Sequential(
-            nn.Linear(in_features, num_classes),
-            nn.Softmax(dim=1)
+            nn.Linear(in_features, num_classes), nn.Softmax(dim=1)
         )
 
         set_dropout(self.model, dropout_rate)

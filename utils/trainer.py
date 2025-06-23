@@ -7,14 +7,12 @@ import torch
 from torch import nn, optim
 from tqdm import tqdm
 
+# Importar modelos
+from models.inceptionv3.inceptionv3_2d import InceptionV3_2D
 from utils.config_utils import save_config
 
 # Importar utilidades
 from utils.evaluation_utils import calculate_metrics, save_results_to_csv
-
-# Importar modelos
-from models.inceptionv3.inceptionv3_2d import InceptionV3_2D
-
 
 # Importar wandb para logging de experimentos
 try:
@@ -302,7 +300,7 @@ class Trainer:
             # Entrenamiento
             self.model.train()
             train_loss, train_acc = self._train_epoch(train_loader, epoch)
-            
+
             # Asegurar que el modelo esté en modo evaluación para calcular métricas
             self.model.eval()
             train_metrics = self._evaluate(train_loader)
@@ -461,12 +459,12 @@ class Trainer:
             self.optimizer.zero_grad()
 
             output = self.model(data)
-            if type(output) is tuple and isinstance(self.model, InceptionV3_2D): 
+            if type(output) is tuple and isinstance(self.model, InceptionV3_2D):
                 output = output[0]
                 # aux_output = output[1]
                 # loss = self.criterion(output, target_for_loss) + 0.4 * self.criterion(aux_output, target_for_loss)
             # else:
-                # aux_output = None
+            # aux_output = None
             loss = self.criterion(output, target_for_loss)
 
             # Backward pass
@@ -588,7 +586,7 @@ class Trainer:
         """
         # Asegurar que el modelo esté en modo evaluación
         self.model.eval()
-        
+
         metrics = self._evaluate(test_loader)
 
         # Logging

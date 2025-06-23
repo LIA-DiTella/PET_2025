@@ -70,11 +70,11 @@ class ResNet18_2D(nn.Module):
         #     nn.Linear(1024, num_classes),
         #     nn.Softmax(dim=1)
         # )
-        
+
         self.model.fc = nn.Sequential(
             # nn.Dropout(dropout_rate),
             nn.Linear(in_features, num_classes),
-            nn.Softmax(dim=1)  # Asegurar salida de probabilidades
+            nn.Softmax(dim=1),  # Asegurar salida de probabilidades
         )
 
     def forward(self, x):

@@ -25,6 +25,7 @@ ignore = [
     "N801",  # Class names like ResNet18_2D are allowed
     "N806",  # Variable names like B, N, H, W are common en PyTorch
     "N812",  # Import F from torch.nn.functional is a common convention
+    "C901",  # Too Complex
 ]
 
 # Configuración específica para formateador
