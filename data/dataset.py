@@ -492,9 +492,15 @@ class PETDataset(Dataset):
             if self.is_3d:
                 # Para 3D, convertir a tensor y redimensionar
                 img = transforms.functional.to_tensor(img)
-                img = transforms.functional.resize(
-                    img, (self.output_size[0], self.output_size[1], self.num_slices)
-                )
+                # img = transforms.functional.resize(
+                #     img, (self.output_size[0], self.output_size[1], self.num_slices)
+                # )  # ValueError: Size must be an int or a 1 or 2 element tuple/list, not a 3 element tuple/list
+
+                for i in range(img.shape[2]):
+                    img[:, :, i] = transforms.functional.resize(
+                        img[:, :, i], self.output_size
+                    )
+
                 # Normalizar
                 img = transforms.functional.normalize(
                     img, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
