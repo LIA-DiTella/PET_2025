@@ -1,7 +1,7 @@
 # import torch
 # import torch.nn.functional as F
 from torch import nn
-from torchvision.models.MViT import mvit_v1_b, mvit_v1_s
+from torchvision.models.video.MViT import mvit_v1_b, mvit_v1_s
 
 variants_enum = {
     "mvit_v1_b": mvit_v1_b,
