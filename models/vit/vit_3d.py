@@ -1,16 +1,16 @@
 # import torch
 # import torch.nn.functional as F
 from torch import nn
-from torchvision.models.video.MViT import mvit_v1_b, mvit_v1_s
+from torchvision.models.video import mvit_v1_b, mvit_v2_s
 
 variants_enum = {
     "mvit_v1_b": mvit_v1_b,
-    "mvit_v1_s": mvit_v1_s,
+    "mvit_v2_s": mvit_v2_s,
 }
 
 weights_enum = {
     "mvit_v1_b": "MViT_V1_B_Weights",
-    "mvit_v1_s": "MViT_V1_S_Weights",
+    "mvit_v2_s": "MViT_V2_S_Weights",
 }
 
 
