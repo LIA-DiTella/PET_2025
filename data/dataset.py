@@ -472,38 +472,28 @@ class PETDataset(Dataset):
 
         # Aplicar transformaciones si existen
         if self.transform:
-            # img = self.transform(img)
-            img = transforms.functional.to_tensor(img)  # Convertir a tensor
-            # transforms.Resize(256),
-            # transforms.CenterCrop(224),
-            # transforms.ToTensor(),
-            # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            if not self.is_3d:
+                img = transforms.functional.to_tensor(img)  # Convertir a tensor
+                img = transforms.functional.resize(img, self.output_size)  # Redimensionar a tamaño de salida
 
-            # img = transforms.functional.resize(img, (256, 256))
-            # print(f"Imagen transformada: forma {img.shape}, etiqueta {label}")
-            # img = transforms.functional.center_crop(img, (224, 224))
-            # img = transforms.functional.resize(img, (224, 224))
+                # print(f"Imagen centrada: forma {img.shape}, etiqueta {label}")
+                # img = transforms.functional.normalize(img, mean=np.mean([0.485, 0.456, 0.406]), std=np.mean([0.229, 0.224, 0.225]))  # Normalizar
+                if not self.channels == 1:
+                    img = img.repeat(self.channels, 1, 1)
 
-            img = transforms.functional.resize(img, self.output_size)  # Redimensionar a tamaño de salida
+                    img = transforms.functional.normalize(
+                        img, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                    ) 
 
-            # print(f"Imagen centrada: forma {img.shape}, etiqueta {label}")
-            # img = transforms.functional.normalize(img, mean=np.mean([0.485, 0.456, 0.406]), std=np.mean([0.229, 0.224, 0.225]))  # Normalizar
-            if not self.channels == 1:
-                img = img.repeat(self.channels, 1, 1)
-
+            if self.is_3d:
+                # Para 3D, convertir a tensor y redimensionar
+                img = transforms.functional.to_tensor(img)
+                img = transforms.functional.resize(img, (self.output_size[0], self.output_size[1], self.num_slices))
+                # Normalizar
                 img = transforms.functional.normalize(
                     img, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                )  # Normalizar
+                )
 
-
-            # print(f"Imagen normalizada: forma {img.shape}, etiqueta {label}")
-            # img = img[np.newaxis, :, :]  # Añadir dimensión de canal (1, H, W
-            # print(f"Imagen con canal añadido: forma {img.shape}, etiqueta {label}")
-
-        # torch.Size([1, 224, 224])
-        # convert to [3, 224, 224]
-
-        # print(img.shape)
         ohe_label = np.zeros(self.class_count, dtype=np.float32)
         ohe_label[label] = 1.0
         label = ohe_label
@@ -536,7 +526,7 @@ def get_data_loaders(config):
     is_3d = data_config.get("dimension", "2d") == "3d"
     batch_size = data_config.get("batch_size", 32)
     num_workers = data_config.get("num_workers", 4)
-    
+
     output_size = data_config.get("output_size", (224, 224))
     channels = data_config.get("channels", 3)  # Número de canales de salida (1 para 2D, 3 para RGB)
 
