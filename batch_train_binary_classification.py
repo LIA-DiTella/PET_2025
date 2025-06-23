@@ -1,0 +1,460 @@
+"""
+Script para entrenar automáticamente todas las tareas de clasificación binaria
+usando búsqueda aleatoria de hiperparámetros en múltiples modelos y configuraciones.
+"""
+
+import argparse
+import copy
+import json
+import random
+import time
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+import yaml
+
+from data.dataset import get_data_loaders
+from train import train_model
+from utils.config_utils import load_config
+
+
+class BinaryClassificationBatchTrainer:
+    """Entrenador en lote para tareas de clasificación binaria."""
+
+    def __init__(self, base_configs_dir: str = "./configs", results_dir: str = "./batch_results"):
+        self.base_configs_dir = Path(base_configs_dir)
+        self.results_dir = Path(results_dir)
+        self.results_dir.mkdir(exist_ok=True)
+
+        # Espacios de búsqueda para hiperparámetros
+        self.hyperparams_space = {
+            "lr": [1e-3, 1e-4, 1e-5, 1e-6],
+            "dropout": [0.0, 0.1, 0.3, 0.5, 0.6, 0.7],
+            "batch_size": [2, 4, 8, 16],
+            "optimizers": ["adam", "sgd"],
+            "schedulers": [
+                {"name": "cosine_annealing", "config": {"t_max": 50, "eta_min": 0.00001}},
+                {
+                    "name": "reduce_on_plateau",
+                    "config": {"mode": "min", "factor": 0.1, "patience": 5},
+                },
+                {"name": "step_lr", "config": {"step_size": 30, "gamma": 0.1}},
+            ],
+            "feature_extract": [True, False],
+        }
+
+        # Definir todas las tareas de clasificación binaria desde la tabla
+        self.binary_tasks = self._define_binary_tasks()
+
+    def _define_binary_tasks(self) -> List[Dict]:
+        """Define todas las tareas de clasificación binaria basadas en la tabla."""
+        tasks = []
+
+        models = ["resnet18", "inceptionv3", "vit"]
+        dimensions = ["2d", "3d"]
+        datasets = ["ADNI"]  # Solo ADNI según el request
+
+        # Tareas binarias: CN/AD (entrenar con CN/AD, evaluar con CN/AD)
+        # y CN/AD from multiclass (entrenar con CN/MCI/AD, evaluar con CN/AD)
+
+        for model in models:
+            for dim in dimensions:
+                for dataset in datasets:
+                    # Tarea 1: CN/AD puro (entrenar y evaluar con CN/AD)
+                    tasks.append(
+                        {
+                            "model": model,
+                            "dimension": dim,
+                            "dataset": dataset,
+                            "train_classes": "CN_AD",
+                            "eval_classes": "CN_AD",
+                            "task_type": "binary_pure",
+                        }
+                    )
+
+                    # Tarea 2: CN/AD desde multiclase (entrenar con CN/MCI/AD, evaluar con CN/AD)
+                    tasks.append(
+                        {
+                            "model": model,
+                            "dimension": dim,
+                            "dataset": dataset,
+                            "train_classes": "CN_MCI_AD",
+                            "eval_classes": "CN_AD",
+                            "task_type": "binary_from_multiclass",
+                        }
+                    )
+
+        return tasks
+
+    def _get_base_config_path(self, model: str, dimension: str, dataset: str, classes: str) -> Path:
+        """Obtiene la ruta del archivo de configuración base."""
+        # Intentar encontrar un archivo de configuración base apropiado
+        config_patterns = [
+            f"{model}_{dimension}_{dataset.lower()}_{classes.lower()}_server.yaml",
+            f"{model}_{dimension}_{dataset.lower()}_{classes.lower()}.yaml",
+            f"{model}_{dimension}_{dataset.lower()}_cnad_server.yaml",
+            f"{model}_{dimension}_{dataset.lower()}_cnad.yaml",
+        ]
+
+        for pattern in config_patterns:
+            config_path = self.base_configs_dir / pattern
+            if config_path.exists():
+                return config_path
+
+        # Si no se encuentra, usar configuración por defecto según el modelo
+        default_configs = {
+            "resnet18": {
+                "2d": self.base_configs_dir / "resnet18_2d_adni_cnad_server.yaml",
+                "3d": self.base_configs_dir / "resnet18_3d_adni_cnad_server.yaml",
+            },
+            "inceptionv3": {
+                "2d": self.base_configs_dir / "inceptionv3_2d_adni_cnad_server.yaml",
+                "3d": self.base_configs_dir / "inceptionv3_3d_adni_cnad_server.yaml",
+            },
+            "vit": {
+                "2d": self.base_configs_dir / "vit_b_16_2d_adni_cnad_server.yaml",
+                "3d": self.base_configs_dir / "vit_3d_adni_cnad_server.yaml",
+            },
+        }
+
+        if model in default_configs and dimension in default_configs[model]:
+            return default_configs[model][dimension]
+
+        raise FileNotFoundError(f"No se encontró configuración base para {model}_{dimension}")
+
+    def _sample_hyperparameters(self) -> Dict:
+        """Muestrea hiperparámetros aleatorios del espacio de búsqueda."""
+        scheduler = random.choice(self.hyperparams_space["schedulers"])
+
+        return {
+            "lr": random.choice(self.hyperparams_space["lr"]),
+            "dropout": random.choice(self.hyperparams_space["dropout"]),
+            "batch_size": random.choice(self.hyperparams_space["batch_size"]),
+            "optimizer": random.choice(self.hyperparams_space["optimizers"]),
+            "scheduler": scheduler,
+            "feature_extract": random.choice(self.hyperparams_space["feature_extract"]),
+        }
+
+    def _create_config_for_task(
+        self, task: Dict, hyperparams: Dict, epochs: int, run_id: int
+    ) -> Tuple[Dict, Path]:
+        """Crea una configuración específica para una tarea."""
+        base_config_path = self._get_base_config_path(
+            task["model"], task["dimension"], task["dataset"], task["train_classes"]
+        )
+
+        config = load_config(str(base_config_path))
+        config = copy.deepcopy(config)
+
+        # Actualizar configuración del modelo
+        config["model"]["name"] = task["model"]
+        config["model"]["dimension"] = task["dimension"]
+        config["model"]["dropout_rate"] = hyperparams["dropout"]
+        config["model"]["feature_extract"] = hyperparams["feature_extract"]
+
+        # Actualizar configuración de datos
+        config["data"]["dataset_name"] = task["dataset"]
+        config["data"]["classes"] = task["train_classes"]
+        config["data"]["dimension"] = task["dimension"]
+        config["data"]["batch_size"] = hyperparams["batch_size"]
+
+        # Actualizar configuración de entrenamiento
+        config["training"]["epochs"] = epochs
+        config["training"]["optimizer"]["name"] = hyperparams["optimizer"]
+        config["training"]["optimizer"]["lr"] = hyperparams["lr"]
+        config["training"]["scheduler"]["name"] = hyperparams["scheduler"]["name"]
+
+        # Actualizar configuración del scheduler
+        for key, value in hyperparams["scheduler"]["config"].items():
+            config["training"]["scheduler"][key] = value
+
+        # Nombre del experimento
+        run_name = (
+            f"{task['model']}_{task['dimension']}_{task['dataset']}_{task['train_classes']}_"
+            f"{task['task_type']}_lr{hyperparams['lr']}_do{hyperparams['dropout']}_"
+            f"bs{hyperparams['batch_size']}_{hyperparams['optimizer']}_"
+            f"fe{hyperparams['feature_extract']}_run{run_id}_{random.randint(1000, 9999)}"
+        )
+
+        config["experiment"]["name"] = run_name
+        config["wandb"]["name"] = run_name
+        config["wandb"]["tags"] = [
+            task["model"],
+            task["dimension"],
+            task["dataset"].lower(),
+            "pet",
+            "alzheimer",
+            task["train_classes"].lower(),
+            task["task_type"],
+        ]
+
+        # Guardar configuración
+        config_save_path = self.results_dir / "configs" / f"{run_name}.yaml"
+        config_save_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(config_save_path, "w") as f:
+            yaml.dump(config, f)
+
+        config["experiment"]["config_path"] = str(config_save_path)
+
+        return config, config_save_path
+
+    def random_search_single_task(
+        self, task: Dict, n_runs: int, epochs: int, gpu_id: int = None
+    ) -> List[Dict]:
+        """Ejecuta búsqueda aleatoria para una sola tarea."""
+        print("\n🚀 Iniciando búsqueda aleatoria para:")
+        print(f"   Modelo: {task['model']} {task['dimension']}")
+        print(f"   Dataset: {task['dataset']}")
+        print(f"   Clases entrenamiento: {task['train_classes']}")
+        print(f"   Clases evaluación: {task['eval_classes']}")
+        print(f"   Tipo: {task['task_type']}")
+        print(f"   Iteraciones: {n_runs}")
+
+        results = []
+
+        # Cargar datos una sola vez para esta tarea
+        base_config_path = self._get_base_config_path(
+            task["model"], task["dimension"], task["dataset"], task["train_classes"]
+        )
+        base_config = load_config(str(base_config_path))
+        base_config["data"]["classes"] = task["train_classes"]
+
+        try:
+            data_loaders = get_data_loaders(base_config)
+        except Exception as e:
+            print(f"❌ Error cargando datos para {task}: {e}")
+            return results
+
+        for run_id in range(n_runs):
+            try:
+                # Muestrear hiperparámetros
+                hyperparams = self._sample_hyperparameters()
+
+                # Crear configuración para este run
+                config, config_path = self._create_config_for_task(
+                    task, hyperparams, epochs, run_id
+                )
+
+                print(f"\n🔁 Ejecutando run {run_id + 1}/{n_runs}")
+                print(f"   Nombre: {config['experiment']['name']}")
+                print(
+                    f"   Hiperparámetros: lr={hyperparams['lr']}, dropout={hyperparams['dropout']}, "
+                    f"batch_size={hyperparams['batch_size']}, optimizer={hyperparams['optimizer']}"
+                )
+
+                start_time = time.time()
+
+                # Entrenar modelo
+                result = train_model(str(config_path), gpu_id=gpu_id, data_loaders=data_loaders)
+
+                end_time = time.time()
+                training_time = end_time - start_time
+
+                # Agregar metadatos al resultado
+                result["task"] = task
+                result["hyperparams"] = hyperparams
+                result["run_id"] = run_id
+                result["training_time"] = training_time
+                result["config_path"] = str(config_path)
+
+                results.append(result)
+
+                print(f"✅ Completado en {training_time / 60:.1f} minutos")
+
+            except Exception as e:
+                print(f"❌ Error en run {run_id + 1}: {e}")
+                continue
+
+        return results
+
+    def run_batch_training(
+        self,
+        n_runs: int,
+        epochs: int,
+        gpu_id: int = None,
+        filter_models: List[str] = None,
+        filter_dimensions: List[str] = None,
+    ) -> Dict:
+        """Ejecuta entrenamiento en lote para todas las tareas."""
+        print("🎯 Iniciando entrenamiento en lote")
+        print(f"   Total de tareas: {len(self.binary_tasks)}")
+        print(f"   Iteraciones por tarea: {n_runs}")
+        print(f"   Épocas por entrenamiento: {epochs}")
+
+        # Filtrar tareas si se especifica
+        tasks_to_run = self.binary_tasks
+        if filter_models:
+            tasks_to_run = [t for t in tasks_to_run if t["model"] in filter_models]
+        if filter_dimensions:
+            tasks_to_run = [t for t in tasks_to_run if t["dimension"] in filter_dimensions]
+
+        print(f"   Tareas a ejecutar: {len(tasks_to_run)}")
+
+        all_results = {}
+        total_start_time = time.time()
+
+        for i, task in enumerate(tasks_to_run):
+            task_key = f"{task['model']}_{task['dimension']}_{task['dataset']}_{task['train_classes']}_{task['task_type']}"
+
+            print(f"\n{'=' * 80}")
+            print(f"Tarea {i + 1}/{len(tasks_to_run)}: {task_key}")
+            print(f"{'=' * 80}")
+
+            task_results = self.random_search_single_task(task, n_runs, epochs, gpu_id)
+            all_results[task_key] = task_results
+
+            # Guardar resultados intermedios
+            self._save_intermediate_results(all_results)
+
+        total_time = time.time() - total_start_time
+        print(f"\n🎉 Entrenamiento en lote completado en {total_time / 3600:.1f} horas")
+
+        # Guardar resultados finales
+        self._save_final_results(all_results)
+
+        return all_results
+
+    def _save_intermediate_results(self, results: Dict):
+        """Guarda resultados intermedios."""
+        results_file = self.results_dir / "intermediate_results.json"
+
+        # Convertir resultados a formato serializable
+        serializable_results = {}
+        for task_key, task_results in results.items():
+            serializable_results[task_key] = []
+            for result in task_results:
+                # Crear copia sin objetos no serializables
+                clean_result = {
+                    "task": result["task"],
+                    "hyperparams": result["hyperparams"],
+                    "run_id": result["run_id"],
+                    "training_time": result["training_time"],
+                    "config_path": result["config_path"],
+                }
+
+                # Agregar métricas de evaluación si existen
+                if "evaluation" in result and result["evaluation"]:
+                    clean_result["evaluation"] = result["evaluation"]
+
+                serializable_results[task_key].append(clean_result)
+
+        with open(results_file, "w") as f:
+            json.dump(serializable_results, f, indent=2)
+
+    def _save_final_results(self, results: Dict):
+        """Guarda resultados finales y genera resumen."""
+        # Guardar resultados completos
+        self._save_intermediate_results(results)
+
+        # Generar resumen
+        summary = self._generate_summary(results)
+        summary_file = self.results_dir / "summary.json"
+
+        with open(summary_file, "w") as f:
+            json.dump(summary, f, indent=2)
+
+        print("\n📊 Resultados guardados en:")
+        print(f"   Completos: {self.results_dir / 'intermediate_results.json'}")
+        print(f"   Resumen: {summary_file}")
+
+    def _generate_summary(self, results: Dict) -> Dict:
+        """Genera un resumen de los resultados."""
+        summary = {
+            "total_tasks": len(results),
+            "total_runs": sum(len(task_results) for task_results in results.values()),
+            "tasks": {},
+        }
+
+        for task_key, task_results in results.items():
+            if not task_results:
+                continue
+
+            # Encontrar mejor resultado por AUC ROC
+            best_result = None
+            best_auc = -1
+
+            aucs = []
+            for result in task_results:
+                if (
+                    "evaluation" in result
+                    and result["evaluation"]
+                    and "auc_roc" in result["evaluation"]
+                ):
+                    auc = result["evaluation"]["auc_roc"]
+                    aucs.append(auc)
+                    if auc > best_auc:
+                        best_auc = auc
+                        best_result = result
+
+            if aucs:
+                summary["tasks"][task_key] = {
+                    "n_runs": len(task_results),
+                    "best_auc": best_auc,
+                    "mean_auc": sum(aucs) / len(aucs),
+                    "std_auc": (sum((x - sum(aucs) / len(aucs)) ** 2 for x in aucs) / len(aucs))
+                    ** 0.5,
+                    "best_hyperparams": best_result["hyperparams"] if best_result else None,
+                }
+
+        return summary
+
+
+def parse_args():
+    """Parsea argumentos de línea de comandos."""
+    parser = argparse.ArgumentParser(
+        description="Entrenamiento en lote para tareas de clasificación binaria con búsqueda aleatoria"
+    )
+    parser.add_argument(
+        "--n_runs",
+        type=int,
+        default=5,
+        help="Número de iteraciones de búsqueda aleatoria por tarea (default: 5)",
+    )
+    parser.add_argument(
+        "--epochs", type=int, default=50, help="Número de épocas por entrenamiento (default: 50)"
+    )
+    parser.add_argument(
+        "--gpu",
+        type=int,
+        default=None,
+        help="ID de GPU a usar (default: usa cuda si está disponible)",
+    )
+    parser.add_argument(
+        "--models",
+        nargs="+",
+        choices=["resnet18", "inceptionv3", "vit"],
+        help="Modelos a entrenar (default: todos)",
+    )
+    parser.add_argument(
+        "--dimensions",
+        nargs="+",
+        choices=["2d", "3d"],
+        help="Dimensiones a entrenar (default: ambas)",
+    )
+    parser.add_argument(
+        "--results_dir",
+        type=str,
+        default="./batch_results",
+        help="Directorio para guardar resultados (default: ./batch_results)",
+    )
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = parse_args()
+
+    # Crear entrenador
+    trainer = BinaryClassificationBatchTrainer(results_dir=args.results_dir)
+
+    # Ejecutar entrenamiento en lote
+    results = trainer.run_batch_training(
+        n_runs=args.n_runs,
+        epochs=args.epochs,
+        gpu_id=args.gpu,
+        filter_models=args.models,
+        filter_dimensions=args.dimensions,
+    )
+
+    print(f"\n✨ Proceso completado! Revisa los resultados en {args.results_dir}")

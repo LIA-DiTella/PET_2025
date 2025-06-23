@@ -1,0 +1,65 @@
+# Configuración base para entrenar ViT 3D en ADNI con CN/AD
+
+experiment:
+  base_dir: './experiments'
+  name: 'baseline'
+
+# Configuración de Weights & Biases
+wandb:
+  enabled: true
+  project: 'PET'
+  entity: pardo
+  name: 'vit_3d_adni_cn_ad'
+  tags: ['vit', '3d', 'adni', 'pet', 'alzheimer', "cn_ad"]
+  notes: 'Entrenamiento de ViT 3D para clasificación de Alzheimer con imágenes PET'
+  group: 'vit_3d'
+  job_type: 'train'
+  watch_model: true
+  watch_freq: 100
+  log_frequency: 1
+
+model:
+  name: 'vit'
+  dimension: '3d'
+  vol_size: 96
+  patch_size: 16
+  embed_dim: 512
+  depth: 8
+  num_heads: 8
+  pretrained: false
+  feature_extract: false
+  dropout_rate: 0.0
+
+data:
+  dataset_name: 'ADNI'
+  classes: 'CN_AD'
+  dimension: '3d'
+  data_dir: './data/NIFTIs/Archivo/converted_niftis/'
+  train_csv: './data/metadata/adni_train.csv'
+  val_csv: './data/metadata/adni_val.csv'
+  test_csv: './data/metadata/adni_test.csv'
+  batch_size: 2  # Batch size pequeño para ViT 3D
+  num_workers: 1
+  target_shape: [96, 96, 96]
+  
+  augmentation:
+    enabled: false
+
+training:
+  epochs: 50
+  early_stopping_patience: 1
+  
+  optimizer:
+    name: 'adamw'
+    lr: 0.00005
+    weight_decay: 0.01
+  
+  scheduler:
+    name: 'cosine_annealing'
+    t_max: 50
+    eta_min: 0.000001
+  
+  loss:
+    name: 'cross_entropy'
+    weighted: true
+    class_weights: [1.0, 1.0]

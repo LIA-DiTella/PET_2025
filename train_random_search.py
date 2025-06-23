@@ -18,7 +18,7 @@ def random_search(config_path: str, n_runs: int = 5, gpu_id: int = None):
     dropout_list = [0.0, 0.1, 0.3, 0.5, 0.6, 0.7]
     batch_list = [2, 4, 8, 16]
     optimizers = ["adam", "sgd"]
-    """  
+    """
     if sched_name == "cosine_annealing":
         return optim.lr_scheduler.CosineAnnealingLR(
             self.optimizer,

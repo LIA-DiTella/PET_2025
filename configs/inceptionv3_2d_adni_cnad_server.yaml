@@ -1,0 +1,69 @@
+# Configuración de ejemplo para entrenar ResNet-18 2D en ADNI con CN/AD
+
+experiment:
+  base_dir: './experiments'
+  name: 'baseline'    # nombre opcional del experimento
+
+# Configuración de Weights & Biases
+wandb:
+  enabled: true
+  project: 'PET'  # Nombre del proyecto en wandb
+  entity: pardo  # Usuario de wandb (opcional)
+  name: 'inceptionv3_2d_adni_cn_ad'  # Nombre del experimento en wandb
+  tags: ['inceptionv3', '2d', 'adni', 'pet', 'alzheimer', "cn_ad"]
+  notes: 'Entrenamiento de InceptionNetV3 2D para clasificación de Alzheimer con imágenes PET'
+  group: 'inceptionv3_2d'  # Grupo para agrupar experimentos relacionados
+  job_type: 'train'
+  watch_model: true  # Para hacer track de gradientes y parámetros del modelo
+  watch_freq: 100  # Frecuencia de logging de gradientes
+  log_frequency: 1  # Log cada N batches
+
+model:
+  name: 'inceptionv3'
+  dimension: '2d'
+  pretrained: true
+  feature_extract: false
+  dropout_rate: 0.0  # Tasa de dropout para evitar overfitting
+
+data:
+  dataset_name: 'ADNI'
+  classes: 'CN_AD'
+  dimension: '2d'
+  data_dir: './data/NIFTIs/Archivo/converted_niftis/'
+  train_csv: './data/metadata/adni_train.csv'
+  val_csv: './data/metadata/adni_val.csv'
+  test_csv: './data/metadata/adni_test.csv'
+  batch_size: 4
+  num_workers: 1
+  slice_selection: 'middle'  # 'middle', 'all', 'uniform'
+  num_slices: 16              # solo para 'uniform' y 'middle'
+  resample: true
+  output_size: [299, 299]  # Tamaño de salida de las imágenes
+  channels: 3
+
+  augmentation:
+    enabled: false
+    # rotate_degrees: 10
+    # scale_range: [0.9, 1.1]
+    # translate: [0.1, 0.1]
+
+training:
+  epochs: 50
+  early_stopping_patience: 1
+  
+  optimizer:
+    name: 'adam'
+    lr: 0.00001
+    weight_decay: 0.0001
+  
+  scheduler:
+    name: 'reduce_on_plateau'
+    mode: 'max'       # 'min' para pérdida, 'max' para AUC/precisión
+    factor: 0.5       # factor de reducción
+    patience: 5
+  
+  loss:
+    # name: 'BCELoss'
+    name: 'cross_entropy'
+    weighted: true
+    class_weights: [1.0, 1.0]  # pesos por clase para dataset desbalanceado
