@@ -197,10 +197,17 @@ class PETDataset(Dataset):
 
         elif self.slice_selection == "uniform":
             # Seleccionar cortes uniformemente distribuidos
-            # 16 imágenes igualmente separadas entre ellas a lo largo del eje axial (redondeando al slice más cercano).
-            slice_indices = np.linspace(
-                0, img_data.shape[2] - 1, self.num_slices, dtype=int
-            ).tolist()
+            # Para 3D, asegurar que siempre tengamos exactamente num_slices
+            if self.is_3d:
+                slice_indices = np.linspace(
+                    0, img_data.shape[2] - 1, self.num_slices, dtype=int
+                ).tolist()
+            else:
+                # Para 2D, usar el número disponible o num_slices
+                actual_slices = min(self.num_slices, img_data.shape[2])
+                slice_indices = np.linspace(
+                    0, img_data.shape[2] - 1, actual_slices, dtype=int
+                ).tolist()
 
         elif self.slice_selection == "all":
             # Tomar todos los cortes
@@ -214,17 +221,32 @@ class PETDataset(Dataset):
             [img_data[:, :, idx] for idx in slice_indices if 0 <= idx < img_data.shape[2]]
         )
 
+        # Para 3D, asegurar que siempre tengamos exactamente num_slices
+        if self.is_3d and len(slices_data) < self.num_slices:
+            # Rellenar con el último slice disponible si es necesario
+            last_slice = slices_data[-1] if len(slices_data) > 0 else np.zeros_like(img_data[:, :, 0])
+            while len(slices_data) < self.num_slices:
+                slices_data = np.append(slices_data, [last_slice], axis=0)
+
         # Normalizar todos los cortes de una vez (por corte individual)
         # for i in range(len(slices_data)):
         #     slice_min, slice_max = slices_data[i].min(), slices_data[i].max()
         #     if slice_max > slice_min:
         #         slices_data[i] = (slices_data[i] - slice_min) / (slice_max - slice_min)
 
-        image = np.zeros((128, 128, len(slices_data)), dtype=np.float32)
-
-        for i in range(len(slices_data)):
-            slice_img = resize(slices_data[i], (128, 128), anti_aliasing=False)
-            image[:, :, i] = slice_img
+        if self.is_3d:
+            # Para 3D, crear array con dimensiones exactas
+            image = np.zeros((128, 128, self.num_slices), dtype=np.float32)
+            for i in range(self.num_slices):
+                if i < len(slices_data):
+                    slice_img = resize(slices_data[i], (128, 128), anti_aliasing=False)
+                    image[:, :, i] = slice_img
+        else:
+            # Para 2D, mantener el comportamiento original
+            image = np.zeros((128, 128, len(slices_data)), dtype=np.float32)
+            for i in range(len(slices_data)):
+                slice_img = resize(slices_data[i], (128, 128), anti_aliasing=False)
+                image[:, :, i] = slice_img
 
         if not self.is_3d:
             # Make grid in 2D image, handling cases with fewer slices
@@ -419,13 +441,20 @@ class PETDataset(Dataset):
                 image = self.process_image(img_data)
                 # Añadir a las muestras
                 print(image.shape)
-                if (
-                    (not self.is_3d and ((image.shape[0] != 128) or (image.shape[1] != 128)))
-                    or (self.is_3d and (image.shape[0] != 128 or image.shape[1] != 128 or image.shape[2] != self.num_slices))
-                ):
-                    raise ValueError(
-                        f"Dimensiones de imagen incorrectas: {image.shape} (esperado: 128x128 o {self.num_slices} cortes)"
-                    )
+                
+                # Validación estricta de dimensiones
+                if self.is_3d:
+                    # Para 3D debe ser exactamente 128x128x16
+                    if image.shape != (128, 128, self.num_slices):
+                        raise ValueError(
+                            f"Dimensiones de imagen 3D incorrectas: {image.shape} (esperado: 128x128x{self.num_slices})"
+                        )
+                else:
+                    # Para 2D debe ser múltiplo de 128 (grid de imágenes)
+                    if image.shape[0] % 128 != 0 or image.shape[1] % 128 != 0:
+                        raise ValueError(
+                            f"Dimensiones de imagen 2D incorrectas: {image.shape} (debe ser múltiplo de 128x128)"
+                        )
 
                 self.samples.append((image, label))
                 count += 1
@@ -517,7 +546,9 @@ class PETDataset(Dataset):
                     dtype=np.float32,
                 )
 
-                for i in range(img.shape[2]):
+                # Usar el mínimo entre el número de slices disponibles y el número requerido
+                num_slices_to_process = min(img.shape[2], self.num_slices)
+                for i in range(num_slices_to_process):
                     tmp_img[:, :, i] = resize(
                         img[:, :, i], self.output_size, anti_aliasing=False
                     )
