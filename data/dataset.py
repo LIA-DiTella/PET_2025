@@ -441,7 +441,7 @@ class PETDataset(Dataset):
                 image = self.process_image(img_data)
                 # Añadir a las muestras
                 print(image.shape)
-                
+
                 # Validación estricta de dimensiones
                 if self.is_3d:
                     # Para 3D debe ser exactamente 128x128x16
@@ -554,8 +554,19 @@ class PETDataset(Dataset):
                     )
 
                 img = torch.tensor(tmp_img, dtype=torch.float32)
-                print(f"Imagen 3D procesada: forma {img.shape}, etiqueta {label}")
 
+                tmp_img = np.zeros(
+                    (3, self.output_size[0], self.output_size[1], self.num_slices),
+                    dtype=np.float32,
+                )
+
+                tmp_img[0, :, :, :] = img[:, :, :]
+                tmp_img[1, :, :, :] = img[:, :, :]
+                tmp_img[2, :, :, :] = img[:, :, :]
+
+                img = torch.tensor(tmp_img, dtype=torch.float32)
+
+                print(f"Imagen 3D procesada: forma {img.shape}, etiqueta {label}")
 
         ohe_label = np.zeros(self.class_count, dtype=np.float32)
         ohe_label[label] = 1.0
