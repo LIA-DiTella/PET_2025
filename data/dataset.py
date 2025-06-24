@@ -104,7 +104,9 @@ class PETDataset(Dataset):
             print(f"CSV cargado. Filas: {len(self.metadata)}")
             print("3D" * (is_3d) + "2D" * (not is_3d))
             print(f"Modo: {self.mode}, Selección de cortes: {self.slice_selection}")
-            print(f"Clase(s): {self.class_count} ({'CN, MCI, AD' if self.class_count == 3 else 'CN, AD'})")
+            print(
+                f"Clase(s): {self.class_count} ({'CN, MCI, AD' if self.class_count == 3 else 'CN, AD'})"
+            )
             print(f"Output size: {self.output_size}, Canales: {self.channels}")
 
         # Obtener lista de imágenes y etiquetas
@@ -224,7 +226,9 @@ class PETDataset(Dataset):
         # Para 3D, asegurar que siempre tengamos exactamente num_slices
         if self.is_3d and len(slices_data) < self.num_slices:
             # Rellenar con el último slice disponible si es necesario
-            last_slice = slices_data[-1] if len(slices_data) > 0 else np.zeros_like(img_data[:, :, 0])
+            last_slice = (
+                slices_data[-1] if len(slices_data) > 0 else np.zeros_like(img_data[:, :, 0])
+            )
             while len(slices_data) < self.num_slices:
                 slices_data = np.append(slices_data, [last_slice], axis=0)
 
@@ -439,22 +443,15 @@ class PETDataset(Dataset):
                     raise ValueError(f"Formato de imagen no soportado: {img_data.ndim} dimensiones")
 
                 image = self.process_image(img_data)
-                # Añadir a las muestras
-                print(image.shape)
+                # Aplicar transformaciones durante la carga
+                image = self._apply_transforms(image)
 
-                # Validación estricta de dimensiones
-                if self.is_3d:
-                    # Para 3D debe ser exactamente 128x128x16
-                    if image.shape != (128, 128, self.num_slices):
-                        raise ValueError(
-                            f"Dimensiones de imagen 3D incorrectas: {image.shape} (esperado: 128x128x{self.num_slices})"
-                        )
-                else:
-                    # Para 2D debe ser múltiplo de 128 (grid de imágenes)
-                    if image.shape[0] % 128 != 0 or image.shape[1] % 128 != 0:
-                        raise ValueError(
-                            f"Dimensiones de imagen 2D incorrectas: {image.shape} (debe ser múltiplo de 128x128)"
-                        )
+                if self.verbose and count == 0:
+                    print(f"Imagen procesada final: {image.shape}")
+
+                ohe_label = np.zeros(self.class_count, dtype=np.float32)
+                ohe_label[label] = 1.0
+                label = torch.tensor(ohe_label, dtype=torch.float32)
 
                 self.samples.append((image, label))
                 count += 1
@@ -505,76 +502,57 @@ class PETDataset(Dataset):
 
     def __getitem__(self, idx):
         img, label = self.samples[idx]
-        # print(type(img), img.shape, label)
-        # <class 'numpy.ndarray'> (512, 512) 1
 
-        # if not self.is_3d:
-        # Añadir dimensión de canal para 2D (C, H, W)
-        # img = img[np.newaxis, :, :]  # Añadir dimensión de canal (1, H, W)
-
-        # print(f"Imagen {idx}: forma {img.shape}, etiqueta {label}")
-        # Imagen 50: forma (1, 512, 512), etiqueta 1
-
-        # Aplicar transformaciones si existen
-        print(img.shape)
-        if self.transform:
-            if not self.is_3d:
-                img = transforms.functional.to_tensor(img)  # Convertir a tensor
-                img = transforms.functional.resize(
-                    img, self.output_size
-                )  # Redimensionar a tamaño de salida
-
-                # print(f"Imagen centrada: forma {img.shape}, etiqueta {label}")
-                # img = transforms.functional.normalize(img, mean=np.mean([0.485, 0.456, 0.406]), std=np.mean([0.229, 0.224, 0.225]))  # Normalizar
-                if not self.channels == 1:
-                    img = img.repeat(self.channels, 1, 1)
-
-                    img = transforms.functional.normalize(
-                        img, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                    )
-
-            print(img.shape)
-            if self.is_3d:
-                print(img.shape)
-                # Para 3D, convertir a tensor y redimensionar
-                img = transforms.functional.to_tensor(img)
-                # img = transforms.functional.resize(
-                #     img, (self.output_size[0], self.output_size[1], self.num_slices)
-                # )  # ValueError: Size must be an int or a 1 or 2 element tuple/list, not a 3 element tuple/list
-                tmp_img = np.zeros(
-                    (self.output_size[0], self.output_size[1], self.num_slices),
-                    dtype=np.float32,
-                )
-
-                # Usar el mínimo entre el número de slices disponibles y el número requerido
-                num_slices_to_process = min(img.shape[2], self.num_slices)
-                for i in range(num_slices_to_process):
-                    tmp_img[:, :, i] = resize(
-                        img[:, :, i], self.output_size, anti_aliasing=False
-                    )
-
-                img = torch.tensor(tmp_img, dtype=torch.float32)
-
-                tmp_img = np.zeros(
-                    (3, self.output_size[0], self.output_size[1], self.num_slices),
-                    dtype=np.float32,
-                )
-
-                tmp_img[0, :, :, :] = img[:, :, :]
-                tmp_img[1, :, :, :] = img[:, :, :]
-                tmp_img[2, :, :, :] = img[:, :, :]
-
-                img = torch.tensor(tmp_img, dtype=torch.float32)
-
-                print(f"Imagen 3D procesada: forma {img.shape}, etiqueta {label}")
-
-        ohe_label = np.zeros(self.class_count, dtype=np.float32)
-        ohe_label[label] = 1.0
-        label = ohe_label
-        label = torch.tensor(label, dtype=torch.float32)
-
-        print(img.shape)
         return img, label
+
+    def _apply_transforms(self, image):
+        """Aplica transformaciones a la imagen durante la carga del dataset."""
+        if not self.transform:
+            return image
+
+        if self.is_3d:
+            # Para 3D: convertir (H, W, D) -> (C, D, H, W)
+            if image.shape == (128, 128, self.num_slices):
+                # Redimensionar si es necesario
+                if self.output_size != (128, 128):
+                    resized_image = np.zeros(
+                        (self.output_size[0], self.output_size[1], self.num_slices),
+                        dtype=np.float32,
+                    )
+                    for i in range(self.num_slices):
+                        resized_image[:, :, i] = resize(
+                            image[:, :, i], self.output_size, anti_aliasing=False
+                        )
+                    image = resized_image
+
+                # Crear tensor con formato (C, D, H, W)
+                # Primero transponer (H, W, D) -> (D, H, W)
+                # image = image.transpose(2, 0, 1)
+
+                image = torch.tensor(image, dtype=torch.float32)
+                image = image.unsqueeze(0)  # (1, D, H, W)
+
+                # Duplicar canales si es necesario (para RGB)
+                if self.channels == 3:
+                    image = image.repeat(3, 1, 1, 1)  # (3, D, H, W)
+
+            else:
+                raise ValueError(f"Dimensiones inesperadas para 3D: {image.shape}")
+
+        else:
+            # Para 2D: mantener el comportamiento original
+            image = transforms.functional.to_tensor(image)  # Convertir a tensor
+            image = transforms.functional.resize(
+                image, self.output_size
+            )  # Redimensionar a tamaño de salida
+
+            if self.channels != 1:
+                image = image.repeat(self.channels, 1, 1)
+                image = transforms.functional.normalize(
+                    image, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                )
+
+        return image
 
 
 def get_data_loaders(config):
