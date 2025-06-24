@@ -24,7 +24,7 @@ def set_parameter_requires_grad(model, feature_extract) -> None:
     """
     if feature_extract:
         for name, param in model.named_parameters():
-            param.requires_grad = name.startswith("heads.head")
+            param.requires_grad = name.startswith("head")
 
 
 def set_dropout(model, dropout_rate):
@@ -72,9 +72,9 @@ class ViT_3D(nn.Module):
             weights=weights_enum[variant] if pretrained else None,
         )
 
-        in_features = self.model.heads.head.in_features
+        in_features = self.model.head.in_features
 
-        self.model.heads.head = nn.Sequential(
+        self.model.head = nn.Sequential(
             nn.Linear(in_features, num_classes), nn.Softmax(dim=1)
         )
 
