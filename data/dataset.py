@@ -501,11 +501,18 @@ class PETDataset(Dataset):
                 # img = transforms.functional.resize(
                 #     img, (self.output_size[0], self.output_size[1], self.num_slices)
                 # )  # ValueError: Size must be an int or a 1 or 2 element tuple/list, not a 3 element tuple/list
+                tmp_img = np.zeros(
+                    (self.output_size[0], self.output_size[1], self.num_slices),
+                    dtype=np.float32,
+                )
 
                 for i in range(img.shape[2]):
-                    img[:, :, i] = transforms.functional.resize(
-                        img[:, :, i], self.output_size
+                    tmp_img[:, :, i] = resize(
+                        img[:, :, i], self.output_size, anti_aliasing=False
                     )
+
+                img = torch.tensor(tmp_img, dtype=torch.float32)
+                print(f"Imagen 3D procesada: forma {img.shape}, etiqueta {label}")
 
                 # Normalizar
                 img = transforms.functional.normalize(
