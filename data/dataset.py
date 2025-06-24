@@ -556,10 +556,6 @@ class PETDataset(Dataset):
                 img = torch.tensor(tmp_img, dtype=torch.float32)
                 print(f"Imagen 3D procesada: forma {img.shape}, etiqueta {label}")
 
-                # Normalizar
-                img = transforms.functional.normalize(
-                    img, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                )
 
         ohe_label = np.zeros(self.class_count, dtype=np.float32)
         ohe_label[label] = 1.0
