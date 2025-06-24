@@ -102,6 +102,10 @@ class PETDataset(Dataset):
 
         if self.verbose:
             print(f"CSV cargado. Filas: {len(self.metadata)}")
+            print("3D" * (is_3d) + "2D" * (not is_3d))
+            print(f"Modo: {self.mode}, Selección de cortes: {self.slice_selection}")
+            print(f"Clase(s): {self.class_count} ({'CN, MCI, AD' if self.class_count == 3 else 'CN, AD'})")
+            print(f"Output size: {self.output_size}, Canales: {self.channels}")
 
         # Obtener lista de imágenes y etiquetas
         self.samples = []
@@ -473,6 +477,7 @@ class PETDataset(Dataset):
         # Imagen 50: forma (1, 512, 512), etiqueta 1
 
         # Aplicar transformaciones si existen
+        print(img.shape)
         if self.transform:
             if not self.is_3d:
                 img = transforms.functional.to_tensor(img)  # Convertir a tensor
@@ -496,7 +501,7 @@ class PETDataset(Dataset):
                 # img = transforms.functional.resize(
                 #     img, (self.output_size[0], self.output_size[1], self.num_slices)
                 # )  # ValueError: Size must be an int or a 1 or 2 element tuple/list, not a 3 element tuple/list
-                
+
                 for i in range(img.shape[2]):
                     img[:, :, i] = transforms.functional.resize(
                         img[:, :, i], self.output_size
