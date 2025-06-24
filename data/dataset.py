@@ -221,6 +221,7 @@ class PETDataset(Dataset):
         #         slices_data[i] = (slices_data[i] - slice_min) / (slice_max - slice_min)
 
         image = np.zeros((128, 128, len(slices_data)), dtype=np.float32)
+        
         for i in range(len(slices_data)):
             slice_img = resize(slices_data[i], (128, 128), anti_aliasing=False)
             image[:, :, i] = slice_img
@@ -417,6 +418,7 @@ class PETDataset(Dataset):
 
                 image = self.process_image(img_data)
                 # Añadir a las muestras
+                print(image.shape)
                 self.samples.append((image, label))
                 count += 1
 
@@ -494,6 +496,7 @@ class PETDataset(Dataset):
                         img, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
                     )
 
+            print(img.shape)
             if self.is_3d:
                 print(img.shape)
                 # Para 3D, convertir a tensor y redimensionar
