@@ -156,12 +156,12 @@ class InceptionV3_3D(nn.Module):
 
         # Asegurar dimensiones espaciales mínimas usando interpolación
         batch_size, channels, depth, height, width = x.shape
-        
+
         if height < min_height or width < min_width:
             # Calcular nuevas dimensiones manteniendo proporciones cuando sea posible
             new_height = max(height, min_height)
             new_width = max(width, min_width)
-            
+
             # Usar interpolación trilineal para redimensionar
             x = torch.nn.functional.interpolate(
                 x,
@@ -174,7 +174,7 @@ class InceptionV3_3D(nn.Module):
         logits = self.model(x)
 
         # Aplicar softmax para obtener probabilidades
-        output = self.softmax(logits)
+        output = self.softmax(logits).squeeze(2)
 
         return output
 
