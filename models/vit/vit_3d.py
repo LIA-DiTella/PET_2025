@@ -1,7 +1,7 @@
 # import torch
 # import torch.nn.functional as F
 from torch import nn
-from torchvision.models.video import mvit_v1_b, mvit_v2_s
+from torchvision.models.video import mvit_v1_b, mvit_v2_s, MViT_V1_B_Weights, MViT_V2_S_Weights
 
 variants_enum = {
     "mvit_v1_b": mvit_v1_b,
@@ -9,8 +9,8 @@ variants_enum = {
 }
 
 weights_enum = {
-    "mvit_v1_b": "MViT_V1_B_Weights",
-    "mvit_v2_s": "MViT_V2_S_Weights",
+    "mvit_v1_b": MViT_V1_B_Weights.DEFAULT,
+    "mvit_v2_s": MViT_V2_S_Weights.DEFAULT,
 }
 
 
@@ -72,7 +72,7 @@ class ViT_3D(nn.Module):
             weights=weights_enum[variant] if pretrained else None,
         )
 
-        in_features = self.model.head.in_features
+        in_features = self.model.head[1].in_features
 
         self.model.head = nn.Sequential(
             nn.Linear(in_features, num_classes), nn.Softmax(dim=1)
