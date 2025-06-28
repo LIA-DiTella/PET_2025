@@ -1,0 +1,62 @@
+# Configuración para entrenar Swin Transformer 3D en ADNI con CN/AD
+
+experiment:
+  base_dir: './experiments'
+  name: 'swin_transformer_3d_baseline'
+
+# Configuración de Weights & Biases
+wandb:
+  enabled: true
+  project: 'PET'
+  entity: pardo
+  name: 'swin3d_t_3d_adni_cn_ad'
+  tags: ['swin_transformer', '3d', 'adni', 'pet', 'alzheimer', "cn_ad"]
+  notes: 'Entrenamiento de Swin Transformer 3D para clasificación de Alzheimer con volúmenes PET'
+  group: 'swin_transformer_3d'
+  job_type: 'train'
+  watch_model: true
+  watch_freq: 100
+  log_frequency: 1
+
+model:
+  name: 'swin_transformer'
+  variant: 'swin3d_t'  # 'swin3d_t', 'swin3d_s', 'swin3d_b', 'swin3d_b_22k'
+  dimension: '3d'
+  num_classes: 2
+  pretrained: true
+  feature_extract: false
+  dropout_rate: 0.4
+
+data:
+  dataset_name: 'ADNI'
+  classes: 'CN_AD'
+  dimension: '3d'
+  data_dir: './data/NIFTIs/Archivo/converted_niftis/'
+  train_csv: './data/metadata/adni_train.csv'
+  val_csv: './data/metadata/adni_val.csv'
+  test_csv: './data/metadata/adni_test.csv'
+  batch_size: 2  # Batch size pequeño para Swin Transformer 3D
+  num_workers: 1
+  target_shape: [96, 96, 96]
+  
+  augmentation:
+    enabled: false
+
+training:
+  epochs: 50
+  early_stopping_patience: 10
+  
+  optimizer:
+    name: 'adamw'
+    lr: 0.00005
+    weight_decay: 0.01
+  
+  scheduler:
+    name: 'cosine_annealing'
+    t_max: 50
+    eta_min: 0.000001
+  
+  loss:
+    name: 'cross_entropy'
+    weighted: true
+    class_weights: [1.0, 1.0]

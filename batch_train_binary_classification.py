@@ -50,7 +50,7 @@ class BinaryClassificationBatchTrainer:
         """Define todas las tareas de clasificación binaria basadas en la tabla."""
         tasks = []
 
-        models = ["resnet18", "inceptionv3", "vit"]
+        models = ["resnet18", "inceptionv3", "vit", "swin_transformer"]
         dimensions = ["2d", "3d"]
         datasets = ["ADNI"]  # Solo ADNI según el request
 
@@ -114,6 +114,10 @@ class BinaryClassificationBatchTrainer:
             "vit": {
                 "2d": self.base_configs_dir / "vit_b_16_2d_adni_cnad_server.yaml",
                 "3d": self.base_configs_dir / "vit_3d_adni_cnad_server.yaml",
+            },
+            "swin_transformer": {
+                "2d": self.base_configs_dir / "swin_t_2d_adni_cnad_server.yaml",
+                "3d": self.base_configs_dir / "swin3d_t_3d_adni_cnad_server.yaml",
             },
         }
 
@@ -423,7 +427,7 @@ def parse_args():
     parser.add_argument(
         "--models",
         nargs="+",
-        choices=["resnet18", "inceptionv3", "vit"],
+        choices=["resnet18", "inceptionv3", "vit", "swin_transformer"],
         help="Modelos a entrenar (default: todos)",
     )
     parser.add_argument(

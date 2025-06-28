@@ -12,6 +12,8 @@ from models.inceptionv3.inceptionv3_2d import get_inceptionv3_2d
 from models.inceptionv3.inceptionv3_3d import get_inceptionv3_3d
 from models.resnet18.resnet18_2d import get_resnet18_2d
 from models.resnet18.resnet18_3d import get_resnet18_3d
+from models.swintransformer.swin_transformer_2d import get_swin_transformer_2d
+from models.swintransformer.swin_transformer_3d import get_swin_transformer_3d
 from models.vit.vit_2d import get_vit_2d
 from models.vit.vit_3d import get_vit_3d
 from utils.config_utils import create_experiment_dir, load_config
@@ -25,7 +27,7 @@ def get_model(model_name, dimension, config):
     """Crea una instancia del modelo según los parámetros.
 
     Args:
-        model_name (str): Nombre del modelo (resnet18, inceptionv3, vit)
+        model_name (str): Nombre del modelo (resnet18, inceptionv3, vit, swin_transformer)
         dimension (str): Dimensión del modelo (2d, 3d)
         config (dict): Configuración del modelo
 
@@ -50,6 +52,12 @@ def get_model(model_name, dimension, config):
             return get_vit_2d(config)
         # 3d
         return get_vit_3d(config)
+
+    if model_name == "swin_transformer":
+        if dimension == "2d":
+            return get_swin_transformer_2d(config)
+        # 3d
+        return get_swin_transformer_3d(config)
 
     msg = f"Modelo {model_name} no soportado"
     raise ValueError(msg)

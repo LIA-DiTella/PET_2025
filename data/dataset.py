@@ -196,7 +196,15 @@ class PETDataset(Dataset):
             end_idx = min(img_data.shape[2], end_idx)
 
             slice_indices = list(range(start_idx, end_idx))
+        elif self.slice_selection == "intensity":
+            # Seleccionar cortes basados en intensidad
+            # num_slices basado en la intensidad de los cortes (suma de valores absolutos por corte)
 
+            intensity_dist = np.sum(np.abs(img_data), axis=(0, 1))
+            # Obtener el índice del corte con mayor intensidad
+            top_indices = np.argsort(intensity_dist)[-self.num_slices:]
+            # Ordenar los índices seleccionados
+            slice_indices = sorted(top_indices.tolist())
         elif self.slice_selection == "uniform":
             # Seleccionar cortes uniformemente distribuidos
             # Para 3D, asegurar que siempre tengamos exactamente num_slices
