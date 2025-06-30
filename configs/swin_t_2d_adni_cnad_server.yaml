@@ -42,6 +42,7 @@ data:
   resample: true
   output_size: [224, 224]
   channels: 3
+  use_otsu_masking: true  # Aplicar umbralizado de Otsu para máscara cerebral
 
   augmentation:
     enabled: false

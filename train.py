@@ -1,4 +1,12 @@
-"""Script de entrenamiento para modelos de clasificación PET."""
+"""Script de entrenamiento para modelos de clasificación PET.
+
+Características:
+- Soporte para múltiples modelos: ResNet18, InceptionV3, ViT, Swin Transformer
+- Dimensiones 2D y 3D
+- Umbralizado de Otsu configurable para máscara cerebral
+- Integración con Weights & Biases
+- Configuración flexible via archivos YAML
+"""
 
 import argparse
 import os
@@ -63,12 +71,14 @@ def get_model(model_name, dimension, config):
     raise ValueError(msg)
 
 
-def train_model(config_path, gpu_id=None, data_loaders=None):
+def train_model(config_path, gpu_id=None, data_loaders=None, use_otsu_masking=None):
     """Entrena un modelo según la configuración proporcionada.
 
     Args:
         config_path (str): Ruta al archivo de configuración YAML
         gpu_id (int, optional): ID de GPU a usar
+        data_loaders (tuple, optional): Tupla con (train_loader, val_loader, test_loader)
+        use_otsu_masking (bool, optional): Si usar umbralizado de Otsu. Si None, usa valor del config
 
     Returns:
         dict: Métricas de evaluación
@@ -76,6 +86,13 @@ def train_model(config_path, gpu_id=None, data_loaders=None):
     """
     # Cargar configuración
     config = load_config(config_path)
+
+    # Sobrescribir configuración de Otsu si se proporciona
+    if use_otsu_masking is not None:
+        if "data" not in config:
+            config["data"] = {}
+        config["data"]["use_otsu_masking"] = use_otsu_masking
+        print(f"🎯 Umbralizado de Otsu: {'✅ Habilitado' if use_otsu_masking else '❌ Deshabilitado'} (override)")
 
     # Configurar dispositivo
     if gpu_id is not None and torch.cuda.is_available():
@@ -148,9 +165,30 @@ def parse_args():
         default=None,
         help="ID de GPU a usar (por defecto, usa cuda si está disponible)",
     )
+    parser.add_argument(
+        "--use_otsu_masking",
+        action="store_true",
+        help="Habilitar umbralizado de Otsu para máscara cerebral",
+    )
+    parser.add_argument(
+        "--no_otsu_masking",
+        action="store_true",
+        help="Deshabilitar umbralizado de Otsu",
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
-    results = train_model(args.config, args.gpu)
+    
+    # Determinar configuración de Otsu masking
+    otsu_override = None
+    if args.use_otsu_masking and args.no_otsu_masking:
+        print("⚠️  Ambos --use_otsu_masking y --no_otsu_masking especificados. Usando --no_otsu_masking")
+        otsu_override = False
+    elif args.use_otsu_masking:
+        otsu_override = True
+    elif args.no_otsu_masking:
+        otsu_override = False
+    
+    results = train_model(args.config, args.gpu, use_otsu_masking=otsu_override)

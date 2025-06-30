@@ -7,7 +7,6 @@ import torch
 from nilearn import image as nli
 
 # import torch
-from skimage.transform import resize
 from sklearn.utils import resample
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
@@ -42,6 +41,58 @@ def make_resample(_df, column):
     return df_resampled
 
 
+def torch_resize_2d(image, target_size, mode="nearest"):
+    """
+    Resize a 2D image using PyTorch with nearest neighbor interpolation.
+
+    Args:
+        image (np.ndarray): Input image of shape (H, W)
+        target_size (tuple): Target size (H, W)
+        mode (str): Interpolation mode ('nearest', 'bilinear', etc.)
+
+    Returns:
+        np.ndarray: Resized image
+    """
+    # Convert to tensor and add batch and channel dimensions
+    img_tensor = torch.from_numpy(image).float().unsqueeze(0).unsqueeze(0)  # (1, 1, H, W)
+
+    # Resize using torch.nn.functional.interpolate
+    resized_tensor = torch.nn.functional.interpolate(
+        img_tensor, size=target_size, mode=mode, align_corners=False if mode != "nearest" else None
+    )
+
+    # Remove batch and channel dimensions and convert back to numpy
+    resized_image = resized_tensor.squeeze(0).squeeze(0).numpy()
+
+    return resized_image
+
+
+def torch_resize_3d(image, target_size, mode="nearest"):
+    """
+    Resize a 3D image using PyTorch with nearest neighbor interpolation.
+
+    Args:
+        image (np.ndarray): Input image of shape (H, W, D)
+        target_size (tuple): Target size (H, W, D)
+        mode (str): Interpolation mode ('nearest', 'trilinear', etc.)
+
+    Returns:
+        np.ndarray: Resized image
+    """
+    # Convert to tensor and add batch and channel dimensions
+    img_tensor = torch.from_numpy(image).float().unsqueeze(0).unsqueeze(0)  # (1, 1, H, W, D)
+
+    # Resize using torch.nn.functional.interpolate
+    resized_tensor = torch.nn.functional.interpolate(
+        img_tensor, size=target_size, mode=mode, align_corners=False if mode != "nearest" else None
+    )
+
+    # Remove batch and channel dimensions and convert back to numpy
+    resized_image = resized_tensor.squeeze(0).squeeze(0).numpy()
+
+    return resized_image
+
+
 class PETDataset(Dataset):
     """Dataset para imágenes PET 2D (cortes)."""
 
@@ -61,6 +112,7 @@ class PETDataset(Dataset):
         dynamic_all=False,
         output_size=(224, 224),
         channels=3,
+        use_otsu_masking=True,
     ) -> None:
         """Inicializa el dataset.
 
@@ -72,6 +124,7 @@ class PETDataset(Dataset):
             num_slices (int): Número de cortes a seleccionar por volumen
             mode (str): Modo de operación ('train', 'val', 'test')
             limit (int, opcional): Límite de sujetos a cargar (para pruebas)
+            use_otsu_masking (bool): Si aplicar umbralizado de Otsu para máscara cerebral
 
         """
         self.data_dir = data_dir
@@ -88,6 +141,7 @@ class PETDataset(Dataset):
         )
         self.output_size = output_size  # Tamaño de salida para las imágenes procesadas
         self.channels = channels  # Número de canales de salida (1 para 2D, 3 para RGB)
+        self.use_otsu_masking = use_otsu_masking  # Si aplicar umbralizado de Otsu
 
         # Cargar metadatos
         df = pd.read_csv(csv_path)
@@ -108,6 +162,8 @@ class PETDataset(Dataset):
                 f"Clase(s): {self.class_count} ({'CN, MCI, AD' if self.class_count == 3 else 'CN, AD'})"
             )
             print(f"Output size: {self.output_size}, Canales: {self.channels}")
+            if self.use_otsu_masking:
+                print("Usando umbralizado de Otsu para máscara cerebral")
 
         # Obtener lista de imágenes y etiquetas
         self.samples = []
@@ -170,18 +226,10 @@ class PETDataset(Dataset):
         return None
 
     def process_image(self, img_data):
-        # Seleccionar cortes según el método especificado
-
-        # if self.mode == "train":
-        #     # augmentación de datos
-        #     ts = transforms.Compose(
-        #         [
-        #             transforms.RandomRotation(30),
-        #             transforms.RandomResizedCrop(128, scale=(0.8, 1.0)),
-        #         ]
-        #     )
-        #     img_data = ts(img_data)
-
+        # Aplicar umbralizado de Otsu si está habilitado
+        if self.use_otsu_masking:
+            img_data = apply_brain_mask(img_data, use_otsu=True)
+        
         # z-score normalization
         img_data = (img_data - np.mean(img_data)) / np.std(img_data)
 
@@ -251,13 +299,13 @@ class PETDataset(Dataset):
             image = np.zeros((128, 128, self.num_slices), dtype=np.float32)
             for i in range(self.num_slices):
                 if i < len(slices_data):
-                    slice_img = resize(slices_data[i], (128, 128), anti_aliasing=False)
+                    slice_img = torch_resize_2d(slices_data[i], (128, 128))
                     image[:, :, i] = slice_img
         else:
             # Para 2D, mantener el comportamiento original
             image = np.zeros((128, 128, len(slices_data)), dtype=np.float32)
             for i in range(len(slices_data)):
-                slice_img = resize(slices_data[i], (128, 128), anti_aliasing=False)
+                slice_img = torch_resize_2d(slices_data[i], (128, 128))
                 image[:, :, i] = slice_img
 
         if not self.is_3d:
@@ -528,9 +576,7 @@ class PETDataset(Dataset):
                         dtype=np.float32,
                     )
                     for i in range(self.num_slices):
-                        resized_image[:, :, i] = resize(
-                            image[:, :, i], self.output_size, anti_aliasing=False
-                        )
+                        resized_image[:, :, i] = torch_resize_2d(image[:, :, i], self.output_size)
                     image = resized_image
 
                 # Crear tensor con formato (C, D, H, W)
@@ -590,6 +636,7 @@ def get_data_loaders(config):
 
     output_size = data_config.get("output_size", (224, 224))
     channels = data_config.get("channels", 3)  # Número de canales de salida (1 para 2D, 3 para RGB)
+    use_otsu_masking = data_config.get("use_otsu_masking", True)  # Umbralizado de Otsu por defecto
 
     # Directorios y archivos
     data_dir = data_config.get("data_dir", "./data")
@@ -620,6 +667,7 @@ def get_data_loaders(config):
         config=config,
         output_size=output_size,
         channels=channels,
+        use_otsu_masking=use_otsu_masking,
     )
 
     val_dataset = (
@@ -635,6 +683,7 @@ def get_data_loaders(config):
             limit=val_limit,
             output_size=output_size,
             channels=channels,
+            use_otsu_masking=use_otsu_masking,
         )
         if val_csv
         else None
@@ -653,6 +702,7 @@ def get_data_loaders(config):
             limit=test_limit,
             output_size=output_size,
             channels=channels,
+            use_otsu_masking=use_otsu_masking,
         )
         if test_csv
         else None
@@ -717,3 +767,91 @@ def get_transforms(config, is_train=True, is_3d=False):
     )
 
     return transform
+
+
+def otsu_threshold(image):
+    """
+    Implementa el umbralizado de Otsu para separar automáticamente
+    el tejido cerebral del fondo en imágenes PET.
+    
+    Args:
+        image (np.ndarray): Imagen de entrada
+        
+    Returns:
+        tuple: (threshold_value, binary_mask)
+    """
+    # Aplanar la imagen y remover valores NaN/inf
+    flat_image = image.flatten()
+    flat_image = flat_image[np.isfinite(flat_image)]
+    
+    if len(flat_image) == 0:
+        return 0, np.zeros_like(image, dtype=bool)
+    
+    # Calcular histograma
+    hist, bin_edges = np.histogram(flat_image, bins=256)
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+    
+    # Normalizar histograma para obtener probabilidades
+    hist = hist.astype(float)
+    hist /= hist.sum()
+    
+    # Calcular probabilidades acumuladas y medias acumuladas
+    cum_prob = np.cumsum(hist)
+    cum_mean = np.cumsum(bin_centers * hist)
+    
+    # Media global
+    global_mean = cum_mean[-1]
+    
+    # Evitar división por cero
+    cum_prob = np.where(cum_prob == 0, 1e-10, cum_prob)
+    
+    # Calcular varianza entre clases para cada posible threshold
+    variance_between = np.zeros_like(cum_prob)
+    
+    for i in range(len(cum_prob)):
+        if cum_prob[i] > 0 and cum_prob[i] < 1:
+            # Probabilidades de cada clase
+            w0 = cum_prob[i]  # Peso clase 0 (fondo)
+            w1 = 1 - w0       # Peso clase 1 (primer plano)
+            
+            # Medias de cada clase
+            mu0 = cum_mean[i] / w0 if w0 > 0 else 0
+            mu1 = (global_mean - cum_mean[i]) / w1 if w1 > 0 else 0
+            
+            # Varianza entre clases
+            variance_between[i] = w0 * w1 * (mu0 - mu1) ** 2
+    
+    # Encontrar el threshold que maximiza la varianza entre clases
+    optimal_idx = np.argmax(variance_between)
+    optimal_threshold = bin_centers[optimal_idx]
+    
+    # Crear máscara binaria
+    binary_mask = image > optimal_threshold
+    
+    return optimal_threshold, binary_mask
+
+
+def apply_brain_mask(image, use_otsu=True, min_threshold_percentile=5):
+    """
+    Aplica máscara cerebral para eliminar el fondo de las imágenes PET.
+    
+    Args:
+        image (np.ndarray): Imagen PET 3D
+        use_otsu (bool): Si usar umbralizado de Otsu
+        min_threshold_percentile (float): Percentil mínimo para threshold alternativo
+        
+    Returns:
+        np.ndarray: Imagen con máscara aplicada
+    """
+    if use_otsu:
+        threshold, mask = otsu_threshold(image)
+    else:
+        # Threshold basado en percentil como alternativa
+        threshold = np.percentile(image[image > 0], min_threshold_percentile)
+        mask = image > threshold
+    
+    # Aplicar la máscara
+    masked_image = image.copy()
+    masked_image[~mask] = 0
+    
+    return masked_image

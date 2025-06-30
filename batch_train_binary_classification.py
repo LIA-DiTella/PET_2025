@@ -1,6 +1,14 @@
 """
 Script para entrenar automáticamente todas las tareas de clasificación binaria
 usando búsqueda aleatoria de hiperparámetros en múltiples modelos y configuraciones.
+
+Características:
+- Soporte para múltiples modelos: ResNet18, InceptionV3, ViT, Swin Transformer
+- Dimensiones 2D y 3D
+- Búsqueda aleatoria de hiperparámetros
+- Umbralizado de Otsu configurable para máscara cerebral
+- Guardado automático de resultados y configuraciones
+- Integración con Weights & Biases
 """
 
 import argparse
@@ -22,10 +30,11 @@ from utils.config_utils import load_config
 class BinaryClassificationBatchTrainer:
     """Entrenador en lote para tareas de clasificación binaria."""
 
-    def __init__(self, base_configs_dir: str = "./configs", results_dir: str = "./batch_results"):
+    def __init__(self, base_configs_dir: str = "./configs", results_dir: str = "./batch_results", use_otsu_masking: bool = True):
         self.base_configs_dir = Path(base_configs_dir)
         self.results_dir = Path(results_dir)
         self.results_dir.mkdir(exist_ok=True)
+        self.use_otsu_masking = use_otsu_masking
 
         # Espacios de búsqueda para hiperparámetros
         self.hyperparams_space = {
@@ -162,6 +171,7 @@ class BinaryClassificationBatchTrainer:
         config["data"]["classes"] = task["train_classes"]
         config["data"]["dimension"] = task["dimension"]
         config["data"]["batch_size"] = hyperparams["batch_size"]
+        config["data"]["use_otsu_masking"] = self.use_otsu_masking
 
         # Actualizar configuración de entrenamiento
         config["training"]["epochs"] = epochs
@@ -191,6 +201,7 @@ class BinaryClassificationBatchTrainer:
             "alzheimer",
             task["train_classes"].lower(),
             task["task_type"],
+            "otsu_masking" if self.use_otsu_masking else "no_otsu_masking",
         ]
 
         # Guardar configuración
@@ -224,6 +235,7 @@ class BinaryClassificationBatchTrainer:
         )
         base_config = load_config(str(base_config_path))
         base_config["data"]["classes"] = task["train_classes"]
+        base_config["data"]["use_otsu_masking"] = self.use_otsu_masking
 
         if data_loaders is None:
             try:
@@ -263,6 +275,7 @@ class BinaryClassificationBatchTrainer:
                 result["run_id"] = run_id
                 result["training_time"] = training_time
                 result["config_path"] = str(config_path)
+                result["use_otsu_masking"] = self.use_otsu_masking
 
                 results.append(result)
 
@@ -287,6 +300,7 @@ class BinaryClassificationBatchTrainer:
         print(f"   Total de tareas: {len(self.binary_tasks)}")
         print(f"   Iteraciones por tarea: {n_runs}")
         print(f"   Épocas por entrenamiento: {epochs}")
+        print(f"   Umbralizado de Otsu: {'✅ Habilitado' if self.use_otsu_masking else '❌ Deshabilitado'}")
 
         # Filtrar tareas si se especifica
         tasks_to_run = self.binary_tasks
@@ -313,6 +327,7 @@ class BinaryClassificationBatchTrainer:
                 base_config_2d = load_config(str(base_config_2d))
                 base_config_2d["data"]["dimension"] = "2d"
                 base_config_2d["data"]["classes"] = tasks_to_run[0]["train_classes"]
+                base_config_2d["data"]["use_otsu_masking"] = self.use_otsu_masking
                 data_loaders_2d = get_data_loaders(base_config_2d)
 
             if any(t["dimension"] == "3d" for t in tasks_to_run):
@@ -323,6 +338,7 @@ class BinaryClassificationBatchTrainer:
                 base_config_3d = load_config(str(base_config_3d))
                 base_config_3d["data"]["dimension"] = "3d"
                 base_config_3d["data"]["classes"] = tasks_to_run[0]["train_classes"]
+                base_config_3d["data"]["use_otsu_masking"] = self.use_otsu_masking
                 data_loaders_3d = get_data_loaders(base_config_3d)
         except Exception as e:
             print(f"❌ Error cargando data loaders: {e}")
@@ -425,6 +441,7 @@ class BinaryClassificationBatchTrainer:
         summary = {
             "total_tasks": len(results),
             "total_runs": sum(len(task_results) for task_results in results.values()),
+            "use_otsu_masking": self.use_otsu_masking,
             "tasks": {},
         }
 
@@ -506,6 +523,17 @@ def parse_args():
         default="./batch_results",
         help="Directorio para guardar resultados (default: ./batch_results)",
     )
+    parser.add_argument(
+        "--use_otsu_masking",
+        action="store_true",
+        default=True,
+        help="Habilitar umbralizado de Otsu para máscara cerebral (default: True)",
+    )
+    parser.add_argument(
+        "--no_otsu_masking",
+        action="store_true",
+        help="Deshabilitar umbralizado de Otsu",
+    )
 
     return parser.parse_args()
 
@@ -513,8 +541,14 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
 
+    # Determinar si usar Otsu masking
+    use_otsu = args.use_otsu_masking and not args.no_otsu_masking
+
     # Crear entrenador
-    trainer = BinaryClassificationBatchTrainer(results_dir=args.results_dir)
+    trainer = BinaryClassificationBatchTrainer(
+        results_dir=args.results_dir,
+        use_otsu_masking=use_otsu
+    )
 
     # Ejecutar entrenamiento en lote
     results = trainer.run_batch_training(
