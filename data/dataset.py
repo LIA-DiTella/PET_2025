@@ -202,7 +202,7 @@ class PETDataset(Dataset):
 
             intensity_dist = np.sum(np.abs(img_data), axis=(0, 1))
             # Obtener el índice del corte con mayor intensidad
-            top_indices = np.argsort(intensity_dist)[-self.num_slices :]
+            top_indices = np.argsort(intensity_dist)[-self.num_slices:]
             # Ordenar los índices seleccionados
             slice_indices = sorted(top_indices.tolist())
         elif self.slice_selection == "uniform":
