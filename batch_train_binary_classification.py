@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+import numpy as np
 import yaml
 
 from data.dataset import get_data_loaders
@@ -29,7 +30,7 @@ class BinaryClassificationBatchTrainer:
         # Espacios de búsqueda para hiperparámetros
         self.hyperparams_space = {
             "lr": [1e-3, 1e-4, 1e-5, 1e-6],
-            "dropout": [0.0, 0.1, 0.3, 0.5, 0.6, 0.7],
+            "dropout": [0.0, 0.1, 0.25, 0.5],
             "batch_size": [2, 4, 8, 16],
             "optimizers": ["adam", "sgd"],
             "schedulers": [
@@ -73,16 +74,16 @@ class BinaryClassificationBatchTrainer:
                     )
 
                     # Tarea 2: CN/AD desde multiclase (entrenar con CN/MCI/AD, evaluar con CN/AD)
-                    tasks.append(
-                        {
-                            "model": model,
-                            "dimension": dim,
-                            "dataset": dataset,
-                            "train_classes": "CN_MCI_AD",
-                            "eval_classes": "CN_AD",
-                            "task_type": "binary_from_multiclass",
-                        }
-                    )
+                    # tasks.append(
+                    #     {
+                    #         "model": model,
+                    #         "dimension": dim,
+                    #         "dataset": dataset,
+                    #         "train_classes": "CN_MCI_AD",
+                    #         "eval_classes": "CN_AD",
+                    #         "task_type": "binary_from_multiclass",
+                    #     }
+                    # )
 
         return tasks
 
@@ -319,6 +320,26 @@ class BinaryClassificationBatchTrainer:
 
         return all_results
 
+    def _make_serializable(self, obj):
+        """Convierte objetos no serializables a formato JSON-compatible."""
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, dict):
+            return {key: self._make_serializable(value) for key, value in obj.items()}
+        elif isinstance(obj, list):
+            return [self._make_serializable(item) for item in obj]
+        elif isinstance(obj, tuple):
+            return [self._make_serializable(item) for item in obj]
+        elif hasattr(obj, '__dict__'):
+            # Para objetos complejos, intentar extraer solo atributos serializables
+            return str(obj)
+        else:
+            return obj
+
     def _save_intermediate_results(self, results: Dict):
         """Guarda resultados intermedios."""
         results_file = self.results_dir / "intermediate_results.json"
@@ -330,8 +351,8 @@ class BinaryClassificationBatchTrainer:
             for result in task_results:
                 # Crear copia sin objetos no serializables
                 clean_result = {
-                    "task": result["task"],
-                    "hyperparams": result["hyperparams"],
+                    "task": self._make_serializable(result["task"]),
+                    "hyperparams": self._make_serializable(result["hyperparams"]),
                     "run_id": result["run_id"],
                     "training_time": result["training_time"],
                     "config_path": result["config_path"],
@@ -339,7 +360,11 @@ class BinaryClassificationBatchTrainer:
 
                 # Agregar métricas de evaluación si existen
                 if "evaluation" in result and result["evaluation"]:
-                    clean_result["evaluation"] = result["evaluation"]
+                    clean_result["evaluation"] = self._make_serializable(result["evaluation"])
+
+                # Agregar métricas de entrenamiento si existen
+                if "training" in result and result["training"]:
+                    clean_result["training"] = self._make_serializable(result["training"])
 
                 serializable_results[task_key].append(clean_result)
 
@@ -386,6 +411,9 @@ class BinaryClassificationBatchTrainer:
                     and "auc_roc" in result["evaluation"]
                 ):
                     auc = result["evaluation"]["auc_roc"]
+                    # Convertir a float si es numpy
+                    if hasattr(auc, 'item'):
+                        auc = auc.item()
                     aucs.append(auc)
                     if auc > best_auc:
                         best_auc = auc
@@ -394,11 +422,10 @@ class BinaryClassificationBatchTrainer:
             if aucs:
                 summary["tasks"][task_key] = {
                     "n_runs": len(task_results),
-                    "best_auc": best_auc,
-                    "mean_auc": sum(aucs) / len(aucs),
-                    "std_auc": (sum((x - sum(aucs) / len(aucs)) ** 2 for x in aucs) / len(aucs))
-                    ** 0.5,
-                    "best_hyperparams": best_result["hyperparams"] if best_result else None,
+                    "best_auc": float(best_auc),
+                    "mean_auc": float(sum(aucs) / len(aucs)),
+                    "std_auc": float((sum((x - sum(aucs) / len(aucs)) ** 2 for x in aucs) / len(aucs)) ** 0.5),
+                    "best_hyperparams": self._make_serializable(best_result["hyperparams"]) if best_result else None,
                 }
 
         return summary
