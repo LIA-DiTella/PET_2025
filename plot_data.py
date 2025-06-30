@@ -21,21 +21,21 @@ def animate_images(train_loader, interval=500):
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.axis("off")
     images = []
-    labels = []
+    # labels = []
 
     iterator = iter(train_loader)
-    for batch_imgs, batch_labels in iterator:
-        for img, label in zip(batch_imgs, batch_labels, strict=False):
+    for batch_imgs, _ in iterator:
+        for img in batch_imgs:
             images.append(img.numpy())
-            labels.append(label.item())
+            # labels.append(label.item())
 
     images = np.array(images)
-    labels = np.array(labels)
+    # labels = np.array(labels)
 
     def update(frame):
         ax.clear()
         ax.imshow(images[frame].squeeze(), cmap="hot")
-        ax.set_title(f"Image {frame + 1} - Label: {labels[frame]}")
+        ax.set_title(f"Image {frame + 1}")
         ax.axis("off")
 
     ani = FuncAnimation(fig, update, frames=len(images), interval=interval)
