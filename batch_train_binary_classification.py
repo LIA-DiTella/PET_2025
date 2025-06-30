@@ -205,7 +205,7 @@ class BinaryClassificationBatchTrainer:
         return config, config_save_path
 
     def random_search_single_task(
-        self, task: Dict, n_runs: int, epochs: int, gpu_id: int = None
+        self, task: Dict, n_runs: int, epochs: int, gpu_id: int = None, data_loaders=None
     ) -> List[Dict]:
         """Ejecuta búsqueda aleatoria para una sola tarea."""
         print("\n🚀 Iniciando búsqueda aleatoria para:")
@@ -225,11 +225,12 @@ class BinaryClassificationBatchTrainer:
         base_config = load_config(str(base_config_path))
         base_config["data"]["classes"] = task["train_classes"]
 
-        try:
-            data_loaders = get_data_loaders(base_config)
-        except Exception as e:
-            print(f"❌ Error cargando datos para {task}: {e}")
-            return results
+        if data_loaders is None:
+            try:
+                data_loaders = get_data_loaders(base_config)
+            except Exception as e:
+                print(f"❌ Error cargando datos para {task}: {e}")
+                return results
 
         for run_id in range(n_runs):
             try:
@@ -298,6 +299,13 @@ class BinaryClassificationBatchTrainer:
 
         all_results = {}
         total_start_time = time.time()
+        
+        data_loaders = get_data_loaders(load_config(str(self._get_base_config_path(
+            tasks_to_run[0]["model"],
+            tasks_to_run[0]["dimension"],
+            tasks_to_run[0]["dataset"],
+            tasks_to_run[0]["train_classes"],
+        ))))
 
         for i, task in enumerate(tasks_to_run):
             task_key = f"{task['model']}_{task['dimension']}_{task['dataset']}_{task['train_classes']}_{task['task_type']}"
@@ -306,7 +314,7 @@ class BinaryClassificationBatchTrainer:
             print(f"Tarea {i + 1}/{len(tasks_to_run)}: {task_key}")
             print(f"{'=' * 80}")
 
-            task_results = self.random_search_single_task(task, n_runs, epochs, gpu_id)
+            task_results = self.random_search_single_task(task, n_runs, epochs, gpu_id, data_loaders)
             all_results[task_key] = task_results
 
             # Guardar resultados intermedios
