@@ -300,18 +300,33 @@ class BinaryClassificationBatchTrainer:
         all_results = {}
         total_start_time = time.time()
 
-        data_loaders = get_data_loaders(
-            load_config(
-                str(
-                    self._get_base_config_path(
-                        tasks_to_run[0]["model"],
-                        tasks_to_run[0]["dimension"],
-                        tasks_to_run[0]["dataset"],
-                        tasks_to_run[0]["train_classes"],
-                    )
+        data_loaders_2d = None
+        data_loaders_3d = None
+
+        # Cargar data loaders una sola vez para cada dimensión
+        try:
+            if any(t["dimension"] == "2d" for t in tasks_to_run):
+                print("🔄 Cargando data loaders para 2D...")
+                base_config_2d = self._get_base_config_path(
+                    tasks_to_run[0]["model"], "2d", tasks_to_run[0]["dataset"], tasks_to_run[0]["train_classes"]
                 )
-            )
-        )
+                base_config_2d = load_config(str(base_config_2d))
+                base_config_2d["data"]["dimension"] = "2d"
+                base_config_2d["data"]["classes"] = tasks_to_run[0]["train_classes"]
+                data_loaders_2d = get_data_loaders(base_config_2d)
+
+            if any(t["dimension"] == "3d" for t in tasks_to_run):
+                print("🔄 Cargando data loaders para 3D...")
+                base_config_3d = self._get_base_config_path(
+                    tasks_to_run[0]["model"], "3d", tasks_to_run[0]["dataset"], tasks_to_run[0]["train_classes"]
+                )
+                base_config_3d = load_config(str(base_config_3d))
+                base_config_3d["data"]["dimension"] = "3d"
+                base_config_3d["data"]["classes"] = tasks_to_run[0]["train_classes"]
+                data_loaders_3d = get_data_loaders(base_config_3d)
+        except Exception as e:
+            print(f"❌ Error cargando data loaders: {e}")
+            return {}
 
         for i, task in enumerate(tasks_to_run):
             task_key = f"{task['model']}_{task['dimension']}_{task['dataset']}_{task['train_classes']}_{task['task_type']}"
@@ -321,7 +336,9 @@ class BinaryClassificationBatchTrainer:
             print(f"{'=' * 80}")
 
             task_results = self.random_search_single_task(
-                task, n_runs, epochs, gpu_id, data_loaders
+                task, n_runs, epochs, gpu_id, (
+                    data_loaders_2d if task["dimension"] == "2d" else data_loaders_3d
+                )
             )
             all_results[task_key] = task_results
 
