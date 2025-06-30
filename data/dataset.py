@@ -7,6 +7,7 @@ import torch
 from nilearn import image as nli
 
 # import torch
+from skimage.transform import resize
 from sklearn.utils import resample
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
@@ -39,58 +40,6 @@ def make_resample(_df, column):
     df_resampled = df_resampled.sample(frac=1, random_state=42).reset_index(drop=True)
 
     return df_resampled
-
-
-def torch_resize_2d(image, target_size, mode="nearest"):
-    """
-    Resize a 2D image using PyTorch with nearest neighbor interpolation.
-
-    Args:
-        image (np.ndarray): Input image of shape (H, W)
-        target_size (tuple): Target size (H, W)
-        mode (str): Interpolation mode ('nearest', 'bilinear', etc.)
-
-    Returns:
-        np.ndarray: Resized image
-    """
-    # Convert to tensor and add batch and channel dimensions
-    img_tensor = torch.from_numpy(image).float().unsqueeze(0).unsqueeze(0)  # (1, 1, H, W)
-
-    # Resize using torch.nn.functional.interpolate
-    resized_tensor = torch.nn.functional.interpolate(
-        img_tensor, size=target_size, mode=mode, align_corners=False if mode != "nearest" else None
-    )
-
-    # Remove batch and channel dimensions and convert back to numpy
-    resized_image = resized_tensor.squeeze(0).squeeze(0).numpy()
-
-    return resized_image
-
-
-def torch_resize_3d(image, target_size, mode="nearest"):
-    """
-    Resize a 3D image using PyTorch with nearest neighbor interpolation.
-
-    Args:
-        image (np.ndarray): Input image of shape (H, W, D)
-        target_size (tuple): Target size (H, W, D)
-        mode (str): Interpolation mode ('nearest', 'trilinear', etc.)
-
-    Returns:
-        np.ndarray: Resized image
-    """
-    # Convert to tensor and add batch and channel dimensions
-    img_tensor = torch.from_numpy(image).float().unsqueeze(0).unsqueeze(0)  # (1, 1, H, W, D)
-
-    # Resize using torch.nn.functional.interpolate
-    resized_tensor = torch.nn.functional.interpolate(
-        img_tensor, size=target_size, mode=mode, align_corners=False if mode != "nearest" else None
-    )
-
-    # Remove batch and channel dimensions and convert back to numpy
-    resized_image = resized_tensor.squeeze(0).squeeze(0).numpy()
-
-    return resized_image
 
 
 class PETDataset(Dataset):
@@ -253,7 +202,7 @@ class PETDataset(Dataset):
 
             intensity_dist = np.sum(np.abs(img_data), axis=(0, 1))
             # Obtener el índice del corte con mayor intensidad
-            top_indices = np.argsort(intensity_dist)[-self.num_slices:]
+            top_indices = np.argsort(intensity_dist)[-self.num_slices :]
             # Ordenar los índices seleccionados
             slice_indices = sorted(top_indices.tolist())
         elif self.slice_selection == "uniform":
@@ -302,13 +251,13 @@ class PETDataset(Dataset):
             image = np.zeros((128, 128, self.num_slices), dtype=np.float32)
             for i in range(self.num_slices):
                 if i < len(slices_data):
-                    slice_img = torch_resize_2d(slices_data[i], (128, 128))
+                    slice_img = resize(slices_data[i], (128, 128), anti_aliasing=False)
                     image[:, :, i] = slice_img
         else:
             # Para 2D, mantener el comportamiento original
             image = np.zeros((128, 128, len(slices_data)), dtype=np.float32)
             for i in range(len(slices_data)):
-                slice_img = torch_resize_2d(slices_data[i], (128, 128))
+                slice_img = resize(slices_data[i], (128, 128), anti_aliasing=False)
                 image[:, :, i] = slice_img
 
         if not self.is_3d:
@@ -579,7 +528,9 @@ class PETDataset(Dataset):
                         dtype=np.float32,
                     )
                     for i in range(self.num_slices):
-                        resized_image[:, :, i] = torch_resize_2d(image[:, :, i], self.output_size)
+                        resized_image[:, :, i] = resize(
+                            image[:, :, i], self.output_size, anti_aliasing=False
+                        )
                     image = resized_image
 
                 # Crear tensor con formato (C, D, H, W)
