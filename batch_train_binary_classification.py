@@ -299,13 +299,19 @@ class BinaryClassificationBatchTrainer:
 
         all_results = {}
         total_start_time = time.time()
-        
-        data_loaders = get_data_loaders(load_config(str(self._get_base_config_path(
-            tasks_to_run[0]["model"],
-            tasks_to_run[0]["dimension"],
-            tasks_to_run[0]["dataset"],
-            tasks_to_run[0]["train_classes"],
-        ))))
+
+        data_loaders = get_data_loaders(
+            load_config(
+                str(
+                    self._get_base_config_path(
+                        tasks_to_run[0]["model"],
+                        tasks_to_run[0]["dimension"],
+                        tasks_to_run[0]["dataset"],
+                        tasks_to_run[0]["train_classes"],
+                    )
+                )
+            )
+        )
 
         for i, task in enumerate(tasks_to_run):
             task_key = f"{task['model']}_{task['dimension']}_{task['dataset']}_{task['train_classes']}_{task['task_type']}"
@@ -314,7 +320,9 @@ class BinaryClassificationBatchTrainer:
             print(f"Tarea {i + 1}/{len(tasks_to_run)}: {task_key}")
             print(f"{'=' * 80}")
 
-            task_results = self.random_search_single_task(task, n_runs, epochs, gpu_id, data_loaders)
+            task_results = self.random_search_single_task(
+                task, n_runs, epochs, gpu_id, data_loaders
+            )
             all_results[task_key] = task_results
 
             # Guardar resultados intermedios
@@ -342,7 +350,7 @@ class BinaryClassificationBatchTrainer:
             return [self._make_serializable(item) for item in obj]
         elif isinstance(obj, tuple):
             return [self._make_serializable(item) for item in obj]
-        elif hasattr(obj, '__dict__'):
+        elif hasattr(obj, "__dict__"):
             # Para objetos complejos, intentar extraer solo atributos serializables
             return str(obj)
         else:
@@ -420,7 +428,7 @@ class BinaryClassificationBatchTrainer:
                 ):
                     auc = result["evaluation"]["auc_roc"]
                     # Convertir a float si es numpy
-                    if hasattr(auc, 'item'):
+                    if hasattr(auc, "item"):
                         auc = auc.item()
                     aucs.append(auc)
                     if auc > best_auc:
@@ -432,8 +440,12 @@ class BinaryClassificationBatchTrainer:
                     "n_runs": len(task_results),
                     "best_auc": float(best_auc),
                     "mean_auc": float(sum(aucs) / len(aucs)),
-                    "std_auc": float((sum((x - sum(aucs) / len(aucs)) ** 2 for x in aucs) / len(aucs)) ** 0.5),
-                    "best_hyperparams": self._make_serializable(best_result["hyperparams"]) if best_result else None,
+                    "std_auc": float(
+                        (sum((x - sum(aucs) / len(aucs)) ** 2 for x in aucs) / len(aucs)) ** 0.5
+                    ),
+                    "best_hyperparams": self._make_serializable(best_result["hyperparams"])
+                    if best_result
+                    else None,
                 }
 
         return summary
