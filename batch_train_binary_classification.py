@@ -60,7 +60,8 @@ class BinaryClassificationBatchTrainer:
         """Define todas las tareas de clasificación binaria basadas en la tabla."""
         tasks = []
 
-        models = ["resnet18", "inceptionv3", "vit", "swin_transformer"]
+        # models = ["resnet18", "inceptionv3", "vit", "swin_transformer"]
+        models = ["swin_transformer", "vit"]
         dimensions = ["2d", "3d"]
         datasets = ["ADNI"]  # Solo ADNI según el request
 
