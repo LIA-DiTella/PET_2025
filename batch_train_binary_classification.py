@@ -68,7 +68,8 @@ class BinaryClassificationBatchTrainer:
         tasks = []
 
         # models = ["resnet18", "inceptionv3", "vit", "swin_transformer"]
-        models = ["swin_transformer", "vit"]
+        # models = ["swin_transformer", "vit"]
+        models = ["vit", "swin_transformer", "resnet18", "inceptionv3"]
         dimensions = ["2d", "3d"]
         datasets = ["ADNI"]  # Solo ADNI según el request
 
@@ -778,6 +779,11 @@ def parse_args():
         default=["CN_AD", "CN_MCI_AD"],
         help="Configuraciones de clases para evaluación cruzada (default: CN_AD CN_MCI_AD)",
     )
+    parser.add_argument(
+        "--auto_evaluate_best",
+        action="store_true",
+        help="Evaluar automáticamente los mejores modelos en múltiples datasets después del entrenamiento"
+    )
 
     return parser.parse_args()
 
@@ -803,6 +809,31 @@ if __name__ == "__main__":
     )
 
     print(f"\n✨ Proceso de entrenamiento completado! Revisa los resultados en {args.results_dir}")
+
+    # Ejecutar evaluación automática de mejores modelos si se solicitó
+    if args.auto_evaluate_best:
+        print("\n🔄 Iniciando evaluación automática de mejores modelos...")
+        try:
+            from batch_evaluate_best_models import BestModelMultiEvaluator
+            
+            evaluator = BestModelMultiEvaluator(
+                batch_results_dir=args.results_dir,
+                experiments_dir="./experiments",
+                output_dir=f"{args.results_dir}/best_models_evaluation"
+            )
+            
+            auto_eval_results = evaluator.run_evaluation()
+            
+            if auto_eval_results:
+                print("\n📊 Evaluación automática completada!")
+                print(f"   Resultados guardados en: {args.results_dir}/best_models_evaluation/")
+            else:
+                print("\n⚠️  No se pudo completar la evaluación automática")
+                
+        except ImportError as e:
+            print(f"\n❌ Error importando evaluador automático: {e}")
+        except Exception as e:
+            print(f"\n❌ Error en evaluación automática: {e}")
 
     # Ejecutar evaluación cruzada si se solicitó
     if args.cross_evaluate:
