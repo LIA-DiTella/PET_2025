@@ -229,7 +229,7 @@ class PETDataset(Dataset):
         # Aplicar umbralizado de Otsu si está habilitado
         if self.use_otsu_masking:
             img_data = apply_brain_mask(img_data, use_otsu=True)
-        
+
         # z-score normalization
         img_data = (img_data - np.mean(img_data)) / np.std(img_data)
 
@@ -773,73 +773,73 @@ def otsu_threshold(image):
     """
     Implementa el umbralizado de Otsu para separar automáticamente
     el tejido cerebral del fondo en imágenes PET.
-    
+
     Args:
         image (np.ndarray): Imagen de entrada
-        
+
     Returns:
         tuple: (threshold_value, binary_mask)
     """
     # Aplanar la imagen y remover valores NaN/inf
     flat_image = image.flatten()
     flat_image = flat_image[np.isfinite(flat_image)]
-    
+
     if len(flat_image) == 0:
         return 0, np.zeros_like(image, dtype=bool)
-    
+
     # Calcular histograma
     hist, bin_edges = np.histogram(flat_image, bins=256)
     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
-    
+
     # Normalizar histograma para obtener probabilidades
     hist = hist.astype(float)
     hist /= hist.sum()
-    
+
     # Calcular probabilidades acumuladas y medias acumuladas
     cum_prob = np.cumsum(hist)
     cum_mean = np.cumsum(bin_centers * hist)
-    
+
     # Media global
     global_mean = cum_mean[-1]
-    
+
     # Evitar división por cero
     cum_prob = np.where(cum_prob == 0, 1e-10, cum_prob)
-    
+
     # Calcular varianza entre clases para cada posible threshold
     variance_between = np.zeros_like(cum_prob)
-    
+
     for i in range(len(cum_prob)):
         if cum_prob[i] > 0 and cum_prob[i] < 1:
             # Probabilidades de cada clase
             w0 = cum_prob[i]  # Peso clase 0 (fondo)
-            w1 = 1 - w0       # Peso clase 1 (primer plano)
-            
+            w1 = 1 - w0  # Peso clase 1 (primer plano)
+
             # Medias de cada clase
             mu0 = cum_mean[i] / w0 if w0 > 0 else 0
             mu1 = (global_mean - cum_mean[i]) / w1 if w1 > 0 else 0
-            
+
             # Varianza entre clases
             variance_between[i] = w0 * w1 * (mu0 - mu1) ** 2
-    
+
     # Encontrar el threshold que maximiza la varianza entre clases
     optimal_idx = np.argmax(variance_between)
     optimal_threshold = bin_centers[optimal_idx]
-    
+
     # Crear máscara binaria
     binary_mask = image > optimal_threshold
-    
+
     return optimal_threshold, binary_mask
 
 
 def apply_brain_mask(image, use_otsu=True, min_threshold_percentile=5):
     """
     Aplica máscara cerebral para eliminar el fondo de las imágenes PET.
-    
+
     Args:
         image (np.ndarray): Imagen PET 3D
         use_otsu (bool): Si usar umbralizado de Otsu
         min_threshold_percentile (float): Percentil mínimo para threshold alternativo
-        
+
     Returns:
         np.ndarray: Imagen con máscara aplicada
     """
@@ -849,9 +849,111 @@ def apply_brain_mask(image, use_otsu=True, min_threshold_percentile=5):
         # Threshold basado en percentil como alternativa
         threshold = np.percentile(image[image > 0], min_threshold_percentile)
         mask = image > threshold
-    
+
     # Aplicar la máscara
     masked_image = image.copy()
     masked_image[~mask] = 0
-    
+
     return masked_image
+
+
+def get_test_data_loader(config, data_config_key="data"):
+    """Crea solo un data loader de test para evaluación.
+
+    Args:
+        config (dict): Diccionario de configuración completo
+        data_config_key (str): Clave de la configuración de datos a usar (ej: "data", "data2", "data3")
+
+    Returns:
+        DataLoader: Test data loader o None si no se puede crear
+
+    """
+    # Obtener configuración de datos específica
+    data_config = config.get(data_config_key, {})
+
+    if not data_config:
+        print(f"⚠️  No se encontró configuración de datos para clave: {data_config_key}")
+        return None
+
+    classes = data_config.get("classes", "CN_AD").split("_")
+    num_classes = len(classes)
+
+    # Validar clases
+    valid_classes = ["CN", "AD", "MCI", "SMC", "EMCI", "LMCI"]
+    for class_name in classes:
+        if class_name not in valid_classes:
+            raise ValueError(f"Clase {class_name} no válida. Clases válidas: {valid_classes}")
+
+    if num_classes not in [2, 3]:
+        raise ValueError(f"Número de clases debe ser 2 o 3, recibido: {num_classes}")
+
+    print(f"📊 Creando test loader para: {classes} ({num_classes} clases)")
+    print(f"📊 Dataset: {data_config.get('dataset_name', 'N/A')}")
+
+    # Parámetros del dataset
+    is_3d = data_config.get("dimension", "2d") == "3d"
+    batch_size = data_config.get("batch_size", 1)  # Para evaluación, típicamente batch_size=1
+    num_workers = data_config.get("num_workers", 1)  # Menos workers para evaluación
+
+    output_size = data_config.get("output_size", (224, 224))
+    channels = data_config.get("channels", 3)
+    use_otsu_masking = data_config.get("use_otsu_masking", True)
+
+    # Archivos y directorios
+    data_dir = data_config.get("data_dir", "./data")
+    test_csv = data_config.get("test_csv")
+
+    if not test_csv:
+        print(f"⚠️  No se especificó test_csv en configuración {data_config_key}")
+        return None
+
+    # Verificar que los archivos existen
+    if not os.path.exists(test_csv):
+        print(f"❌ No se encontró archivo CSV: {test_csv}")
+        return None
+
+    if not os.path.exists(data_dir):
+        print(f"❌ No se encontró directorio de datos: {data_dir}")
+        return None
+
+    # Transformaciones (solo para test, sin augmentación)
+    test_transform = get_transforms(config, is_train=False, is_3d=is_3d)
+    slice_selection = data_config.get("slice_selection", "middle")
+    num_slices = data_config.get("num_slices", 16)
+
+    # Límite de datos para testing (opcional)
+    test_limit = data_config.get("test_limit", None)
+
+    try:
+        # Crear dataset de test
+        test_dataset = PETDataset(
+            data_dir=data_dir,
+            csv_path=test_csv,
+            transform=test_transform,
+            slice_selection=slice_selection,
+            num_slices=num_slices,
+            mode="test",
+            is_3d=is_3d,
+            class_count=num_classes,
+            limit=test_limit,
+            config=config,  # Pasar config completo
+            output_size=output_size,
+            channels=channels,
+            use_otsu_masking=use_otsu_masking,
+        )
+
+        # Crear data loader
+        test_loader = DataLoader(
+            test_dataset,
+            batch_size=batch_size,
+            shuffle=False,  # No shuffle para evaluación
+            num_workers=num_workers,
+            pin_memory=True,
+        )
+
+        print(f"✅ Test loader creado - {len(test_dataset)} muestras")
+        return test_loader
+
+    except Exception as e:
+        print(f"❌ Error creando test loader: {e}")
+        return None

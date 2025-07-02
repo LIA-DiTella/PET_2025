@@ -1,0 +1,139 @@
+# Configuración de ejemplo para entrenar ResNet-18 2D en ADNI con CN/AD
+# y evaluar en múltiples datasets adicionales
+
+experiment:
+  base_dir: './experiments'
+  name: 'baseline'    # nombre opcional del experimento
+
+# Configuración de Weights & Biases
+wandb:
+  enabled: true
+  project: 'PET'  # Nombre del proyecto en wandb
+  entity: pardo  # Usuario de wandb (opcional)
+  name: 'resnet18_2d_adni_cnad_multi_eval'  # Nombre específico de este run
+  tags: ['resnet18', '2d', 'adni', 'pet', 'alzheimer', "cn_ad", "multi_dataset"]
+  notes: 'Entrenamiento de ResNet-18 2D para clasificación de Alzheimer con evaluación en múltiples datasets'
+  group: 'resnet18_2d'  # Grupo para agrupar experimentos relacionados
+  job_type: 'train'
+  watch_model: true  # Para hacer track de gradientes y parámetros del modelo
+  watch_freq: 100  # Frecuencia de logging de gradientes
+  log_frequency: 1  # Log cada N batches
+
+model:
+  name: 'resnet18'
+  dimension: '2d'
+  pretrained: true
+  feature_extract: false
+  dropout_rate: 0.0  # Tasa de dropout para evitar overfitting
+
+# Configuración principal de entrenamiento (ADNI CN/AD)
+data:
+  dataset_name: 'ADNI'
+  classes: 'CN_AD'
+  dimension: '2d'
+  data_dir: './data/NIFTIs/Archivo/converted_niftis/'
+  train_csv: './data/metadata/adni_train.csv'
+  val_csv: './data/metadata/adni_val.csv'
+  test_csv: './data/metadata/adni_test.csv'
+  batch_size: 4
+  num_workers: 1
+  slice_selection: 'middle'  # 'middle', 'all', 'uniform'
+  num_slices: 16              # solo para 'uniform' y 'middle'
+  resample: true
+  output_size: [224, 224]  # Tamaño de salida de las imágenes
+  use_otsu_masking: true
+
+  augmentation:
+    enabled: false
+
+# Configuración adicional para evaluación: FLENI 100 sujetos
+data2:
+  dataset_name: 'fleni100'
+  classes: 'CN_AD'
+  dimension: '2d'
+  data_dir: './data/NIFTIs/fleni100/converted_niftis/'
+  test_csv: './data/NIFTIs/fleni100/fleni100.csv'
+  batch_size: 1
+  num_workers: 1
+  slice_selection: 'middle'  # 'middle', 'all', 'uniform'
+  num_slices: 16              # solo para 'uniform' y 'middle'
+  resample: false
+  output_size: [224, 224]  # Tamaño de salida de las imágenes
+  use_otsu_masking: true
+
+  augmentation:
+    enabled: false
+
+# Configuración adicional para evaluación: FLENI 600 sujetos
+data3:
+  dataset_name: 'fleni600'
+  classes: 'CN_AD'
+  dimension: '2d'
+  data_dir: './data/NIFTIs/fleni600/converted_niftis/'
+  test_csv: './data/NIFTIs/fleni600/fleni600.csv'
+  batch_size: 1
+  num_workers: 1
+  slice_selection: 'middle'  # 'middle', 'all', 'uniform'
+  num_slices: 16              # solo para 'uniform' y 'middle'
+  resample: false
+  output_size: [224, 224]  # Tamaño de salida de las imágenes
+  use_otsu_masking: true
+
+  augmentation:
+    enabled: false
+
+# Configuración adicional para evaluación: ADNI con multiclase
+data4:
+  dataset_name: 'ADNI'
+  classes: 'CN_MCI_AD'  # Evaluación en problema multiclase
+  dimension: '2d'
+  data_dir: './data/NIFTIs/Archivo/converted_niftis/'
+  test_csv: './data/metadata/adni_test.csv'
+  batch_size: 1
+  num_workers: 1
+  slice_selection: 'middle'
+  num_slices: 16
+  resample: false
+  output_size: [224, 224]
+  use_otsu_masking: true
+
+  augmentation:
+    enabled: false
+
+# Configuración adicional para evaluación: Sin Otsu masking
+data5:
+  dataset_name: 'ADNI_no_otsu'
+  classes: 'CN_AD'
+  dimension: '2d'
+  data_dir: './data/NIFTIs/Archivo/converted_niftis/'
+  test_csv: './data/metadata/adni_test.csv'
+  batch_size: 1
+  num_workers: 1
+  slice_selection: 'middle'
+  num_slices: 16
+  resample: false
+  output_size: [224, 224]
+  use_otsu_masking: false  # Evaluación sin máscara de Otsu
+
+  augmentation:
+    enabled: false
+
+training:
+  epochs: 50
+  early_stopping_patience: 10
+  
+  optimizer:
+    name: 'adam'
+    lr: 0.0001
+    weight_decay: 0.0001
+  
+  scheduler:
+    name: 'reduce_on_plateau'
+    mode: 'max'       # 'min' para pérdida, 'max' para AUC/precisión
+    factor: 0.5       # factor de reducción
+    patience: 5
+  
+  loss:
+    name: 'cross_entropy'
+    weighted: true
+    class_weights: [1.0, 1.0]  # pesos por clase para dataset desbalanceado

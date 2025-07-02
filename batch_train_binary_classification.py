@@ -14,12 +14,14 @@ Características:
 import argparse
 import copy
 import json
+import os
 import random
 import time
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+import torch
 import yaml
 
 from data.dataset import get_data_loaders
@@ -30,7 +32,12 @@ from utils.config_utils import load_config
 class BinaryClassificationBatchTrainer:
     """Entrenador en lote para tareas de clasificación binaria."""
 
-    def __init__(self, base_configs_dir: str = "./configs", results_dir: str = "./batch_results", use_otsu_masking: bool = True):
+    def __init__(
+        self,
+        base_configs_dir: str = "./configs",
+        results_dir: str = "./batch_results",
+        use_otsu_masking: bool = True,
+    ):
         self.base_configs_dir = Path(base_configs_dir)
         self.results_dir = Path(results_dir)
         self.results_dir.mkdir(exist_ok=True)
@@ -301,7 +308,9 @@ class BinaryClassificationBatchTrainer:
         print(f"   Total de tareas: {len(self.binary_tasks)}")
         print(f"   Iteraciones por tarea: {n_runs}")
         print(f"   Épocas por entrenamiento: {epochs}")
-        print(f"   Umbralizado de Otsu: {'✅ Habilitado' if self.use_otsu_masking else '❌ Deshabilitado'}")
+        print(
+            f"   Umbralizado de Otsu: {'✅ Habilitado' if self.use_otsu_masking else '❌ Deshabilitado'}"
+        )
 
         # Filtrar tareas si se especifica
         tasks_to_run = self.binary_tasks
@@ -323,7 +332,10 @@ class BinaryClassificationBatchTrainer:
             if any(t["dimension"] == "2d" for t in tasks_to_run):
                 print("🔄 Cargando data loaders para 2D...")
                 base_config_2d = self._get_base_config_path(
-                    tasks_to_run[0]["model"], "2d", tasks_to_run[0]["dataset"], tasks_to_run[0]["train_classes"]
+                    tasks_to_run[0]["model"],
+                    "2d",
+                    tasks_to_run[0]["dataset"],
+                    tasks_to_run[0]["train_classes"],
                 )
                 base_config_2d = load_config(str(base_config_2d))
                 base_config_2d["data"]["dimension"] = "2d"
@@ -334,7 +346,10 @@ class BinaryClassificationBatchTrainer:
             if any(t["dimension"] == "3d" for t in tasks_to_run):
                 print("🔄 Cargando data loaders para 3D...")
                 base_config_3d = self._get_base_config_path(
-                    tasks_to_run[0]["model"], "3d", tasks_to_run[0]["dataset"], tasks_to_run[0]["train_classes"]
+                    tasks_to_run[0]["model"],
+                    "3d",
+                    tasks_to_run[0]["dataset"],
+                    tasks_to_run[0]["train_classes"],
                 )
                 base_config_3d = load_config(str(base_config_3d))
                 base_config_3d["data"]["dimension"] = "3d"
@@ -353,9 +368,11 @@ class BinaryClassificationBatchTrainer:
             print(f"{'=' * 80}")
 
             task_results = self.random_search_single_task(
-                task, n_runs, epochs, gpu_id, (
-                    data_loaders_2d if task["dimension"] == "2d" else data_loaders_3d
-                )
+                task,
+                n_runs,
+                epochs,
+                gpu_id,
+                (data_loaders_2d if task["dimension"] == "2d" else data_loaders_3d),
             )
             all_results[task_key] = task_results
 
@@ -369,6 +386,215 @@ class BinaryClassificationBatchTrainer:
         self._save_final_results(all_results)
 
         return all_results
+
+    def cross_evaluate_trained_models(
+        self,
+        target_datasets: List[str] = None,
+        target_classes_list: List[str] = None,
+        gpu_id: int = None,
+        use_best_models_only: bool = True,
+    ) -> Dict:
+        """Evalúa modelos entrenados en diferentes conjuntos de datos (evaluación cruzada).
+
+        Args:
+            target_datasets: Lista de datasets objetivo para evaluación
+            target_classes_list: Lista de configuraciones de clases para evaluación
+            gpu_id: ID de GPU a usar
+            use_best_models_only: Si True, usa solo los mejores modelos de cada tarea
+
+        Returns:
+            Diccionario con resultados de evaluación cruzada
+        """
+        # Importar evaluador
+        try:
+            from model_evaluator import ModelEvaluator
+        except ImportError:
+            print(
+                "❌ No se pudo importar ModelEvaluator. Asegúrate de que model_evaluator.py esté disponible."
+            )
+            return {}
+
+        if target_datasets is None:
+            target_datasets = ["ADNI"]
+
+        if target_classes_list is None:
+            target_classes_list = ["CN_AD", "CN_MCI_AD"]
+
+        # Configurar dispositivo
+        if gpu_id is not None and torch.cuda.is_available():
+            device = torch.device(f"cuda:{gpu_id}")
+        else:
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        evaluator = ModelEvaluator(device=device)
+
+        print("\n🔄 Iniciando evaluación cruzada de modelos entrenados")
+        print(f"   Datasets objetivo: {target_datasets}")
+        print(f"   Configuraciones de clases: {target_classes_list}")
+
+        # Buscar experimentos entrenados
+        experiments_dir = Path("./experiments")
+        if not experiments_dir.exists():
+            print("❌ No se encontró directorio de experimentos")
+            return {}
+
+        all_cross_eval_results = {}
+
+        # Buscar experimentos que coincidan con las tareas entrenadas
+        for task_key, task_results in self._find_trained_experiments().items():
+            if not task_results:
+                continue
+
+            print(f"\n{'=' * 80}")
+            print(f"Evaluación cruzada para: {task_key}")
+            print(f"{'=' * 80}")
+
+            # Seleccionar modelo a evaluar
+            if use_best_models_only:
+                # Usar el mejor modelo según AUC
+                best_result = self._get_best_result(task_results)
+                if not best_result:
+                    print(f"⚠️  No se encontró mejor modelo para {task_key}")
+                    continue
+                models_to_eval = [best_result]
+            else:
+                # Evaluar todos los modelos entrenados
+                models_to_eval = task_results
+
+            task_cross_results = {}
+
+            for model_result in models_to_eval:
+                if "config_path" not in model_result:
+                    continue
+
+                # Encontrar checkpoint del modelo
+                config_path = model_result["config_path"]
+                experiment_name = Path(config_path).stem
+                exp_dir = experiments_dir / experiment_name
+
+                if not exp_dir.exists():
+                    print(f"⚠️  No se encontró directorio de experimento: {exp_dir}")
+                    continue
+
+                checkpoints_dir = exp_dir / "checkpoints"
+                if not checkpoints_dir.exists():
+                    print(f"⚠️  No se encontró directorio de checkpoints: {checkpoints_dir}")
+                    continue
+
+                # Buscar mejor checkpoint
+                best_checkpoint = None
+                for checkpoint_file in checkpoints_dir.glob("*.pth"):
+                    if "best" in checkpoint_file.name.lower():
+                        best_checkpoint = checkpoint_file
+                        break
+
+                if best_checkpoint is None:
+                    checkpoints = list(checkpoints_dir.glob("*.pth"))
+                    if checkpoints:
+                        best_checkpoint = max(checkpoints, key=os.path.getctime)
+                    else:
+                        print(f"⚠️  No se encontraron checkpoints en {checkpoints_dir}")
+                        continue
+
+                print(f"🔍 Evaluando modelo: {experiment_name}")
+                print(f"   Checkpoint: {best_checkpoint}")
+
+                try:
+                    # Cargar modelo
+                    model, original_config = evaluator.load_model_from_checkpoint(
+                        str(best_checkpoint), str(config_path)
+                    )
+
+                    # Evaluar en cada combinación de dataset y clases
+                    for target_dataset in target_datasets:
+                        for target_classes in target_classes_list:
+                            eval_key = f"{target_dataset}_{target_classes}"
+
+                            print(f"\n   📊 Evaluando en: {eval_key}")
+
+                            # Crear directorio de salida
+                            cross_eval_dir = (
+                                self.results_dir
+                                / "cross_evaluation"
+                                / task_key
+                                / experiment_name
+                                / eval_key
+                            )
+                            cross_eval_dir.mkdir(parents=True, exist_ok=True)
+
+                            # Evaluar
+                            metrics = evaluator.evaluate_on_dataset(
+                                model=model,
+                                original_config=original_config,
+                                target_dataset=target_dataset,
+                                target_classes=target_classes,
+                                use_otsu_masking=self.use_otsu_masking,
+                                output_dir=str(cross_eval_dir),
+                            )
+
+                            # Guardar resultados
+                            if eval_key not in task_cross_results:
+                                task_cross_results[eval_key] = []
+
+                            task_cross_results[eval_key].append(
+                                {
+                                    "experiment_name": experiment_name,
+                                    "original_task": task_key,
+                                    "target_evaluation": eval_key,
+                                    "metrics": metrics,
+                                    "model_config": model_result,
+                                }
+                            )
+
+                except Exception as e:
+                    print(f"❌ Error evaluando {experiment_name}: {e}")
+                    continue
+
+            all_cross_eval_results[task_key] = task_cross_results
+
+        # Guardar resumen de evaluación cruzada
+        cross_eval_summary_path = self.results_dir / "cross_evaluation_summary.json"
+        with open(cross_eval_summary_path, "w") as f:
+            json.dump(self._make_serializable(all_cross_eval_results), f, indent=2)
+
+        print("\n🎉 Evaluación cruzada completada!")
+        print(f"📋 Resumen guardado en: {cross_eval_summary_path}")
+
+        return all_cross_eval_results
+
+    def _find_trained_experiments(self) -> Dict:
+        """Encuentra experimentos ya entrenados basándose en los resultados guardados."""
+        results_file = self.results_dir / "intermediate_results.json"
+
+        if not results_file.exists():
+            print("⚠️  No se encontraron resultados de entrenamiento previos")
+            return {}
+
+        with open(results_file, "r") as f:
+            return json.load(f)
+
+    def _get_best_result(self, task_results: List[Dict]) -> Optional[Dict]:
+        """Obtiene el mejor resultado de una tarea basándose en AUC ROC."""
+        best_result = None
+        best_auc = -1
+
+        for result in task_results:
+            if (
+                "evaluation" in result
+                and result["evaluation"]
+                and "auc_roc" in result["evaluation"]
+            ):
+                auc = result["evaluation"]["auc_roc"]
+                if isinstance(auc, (list, np.ndarray)):
+                    auc = float(auc[0]) if len(auc) > 0 else -1
+                else:
+                    auc = float(auc)
+
+                if auc > best_auc:
+                    best_auc = auc
+                    best_result = result
+
+        return best_result
 
     def _make_serializable(self, obj):
         """Convierte objetos no serializables a formato JSON-compatible."""
@@ -535,6 +761,23 @@ def parse_args():
         action="store_true",
         help="Deshabilitar umbralizado de Otsu",
     )
+    parser.add_argument(
+        "--cross_evaluate",
+        action="store_true",
+        help="Realizar evaluación cruzada después del entrenamiento",
+    )
+    parser.add_argument(
+        "--cross_eval_datasets",
+        nargs="+",
+        default=["ADNI"],
+        help="Datasets para evaluación cruzada (default: ADNI)",
+    )
+    parser.add_argument(
+        "--cross_eval_classes",
+        nargs="+",
+        default=["CN_AD", "CN_MCI_AD"],
+        help="Configuraciones de clases para evaluación cruzada (default: CN_AD CN_MCI_AD)",
+    )
 
     return parser.parse_args()
 
@@ -547,8 +790,7 @@ if __name__ == "__main__":
 
     # Crear entrenador
     trainer = BinaryClassificationBatchTrainer(
-        results_dir=args.results_dir,
-        use_otsu_masking=use_otsu
+        results_dir=args.results_dir, use_otsu_masking=use_otsu
     )
 
     # Ejecutar entrenamiento en lote
@@ -560,4 +802,22 @@ if __name__ == "__main__":
         filter_dimensions=args.dimensions,
     )
 
-    print(f"\n✨ Proceso completado! Revisa los resultados en {args.results_dir}")
+    print(f"\n✨ Proceso de entrenamiento completado! Revisa los resultados en {args.results_dir}")
+
+    # Ejecutar evaluación cruzada si se solicitó
+    if args.cross_evaluate:
+        print("\n🔄 Iniciando evaluación cruzada...")
+        cross_eval_results = trainer.cross_evaluate_trained_models(
+            target_datasets=args.cross_eval_datasets,
+            target_classes_list=args.cross_eval_classes,
+            gpu_id=args.gpu,
+            use_best_models_only=True,
+        )
+
+        if cross_eval_results:
+            print("\n📊 Evaluación cruzada completada!")
+            print(f"   Resultados guardados en: {args.results_dir}/cross_evaluation/")
+        else:
+            print("\n⚠️  No se pudo completar la evaluación cruzada")
+
+    print(f"\n🎉 Proceso completo finalizado! Todos los resultados están en {args.results_dir}")
