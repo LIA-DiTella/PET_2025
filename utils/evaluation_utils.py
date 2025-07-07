@@ -44,7 +44,9 @@ def calculate_metrics(y_true, y_pred, y_score=None):
         if len(np.unique(y_true)) == 2 and y_score is not None:
             from sklearn.metrics import roc_auc_score, f1_score, precision_score, recall_score
             
-            y_score = np.array(y_score)
+            # Asegurar que y_score sea numpy array
+            if not isinstance(y_score, np.ndarray):
+                y_score = np.array(y_score)
             
             try:
                 # Si y_score es 2D (probabilidades por clase), usar columna de clase positiva
