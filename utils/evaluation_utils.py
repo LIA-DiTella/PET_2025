@@ -54,14 +54,18 @@ def calculate_metrics(y_true, y_pred, y_score=None):
             if not isinstance(y_score, np.ndarray):
                 y_score = np.array(y_score)
             
+            print("On Calculate Metrics")
+
             print(type(y_score))
             print(type(y_pred))
 
             y_score = np.array(y_score)
             y_pred = np.array(y_pred)
 
+            print(type(y_score))
+            print(type(y_pred))
+
             try:
-                print(type(y_score))
                 # Si y_score es 2D (probabilidades por clase), usar columna de clase positiva
                 if y_score.ndim == 2 and y_score.shape[1] == 2:
                     y_score_binary = y_score[:, 1]  # Probabilidad de clase positiva
@@ -196,6 +200,9 @@ def save_results_to_csv(y_true, y_pred, y_score, save_path) -> None:
     """
     # Asegurarse que el directorio existe
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+    print("On Save Results to CSV")
+    
     print(type(y_score))
     print(type(y_pred))
     if isinstance(y_true, list):
