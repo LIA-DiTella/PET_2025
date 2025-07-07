@@ -18,31 +18,59 @@ def calculate_metrics(y_true, y_pred, y_score=None):
         dict: Diccionario con las métricas calculadas
 
     """
-    metrics = {}
+    try:
+        metrics = {}
+        
+        # Convertir a numpy arrays y asegurar formato correcto
+        y_true = np.array(y_true).flatten()
+        y_pred = np.array(y_pred).flatten()
+        
+        # Verificar que tengan la misma longitud
+        if len(y_true) != len(y_pred):
+            raise ValueError(f"Length mismatch: y_true={len(y_true)}, y_pred={len(y_pred)}")
+        
+        # Asegurar que sean enteros
+        y_true = y_true.astype(int)
+        y_pred = y_pred.astype(int)
 
-    # Precisión
-    metrics["accuracy"] = accuracy_score(y_true, y_pred)
+        # Precisión
+        metrics["accuracy"] = accuracy_score(y_true, y_pred)
 
-    # Matriz de confusión
-    cm = confusion_matrix(y_true, y_pred)
-    metrics["confusion_matrix"] = cm
+        # Matriz de confusión
+        cm = confusion_matrix(y_true, y_pred)
+        metrics["confusion_matrix"] = cm.tolist()  # Convertir a lista para JSON
 
-    # Para problemas binarios
-    if y_score is not None and (len(np.unique(y_true)) == 2):
-        # ROC AUC
-        # metrics["auc_roc"] = roc_auc_score(y_true, y_score)
+        # Para problemas binarios
+        if len(np.unique(y_true)) == 2 and y_score is not None:
+            from sklearn.metrics import roc_auc_score, f1_score, precision_score, recall_score
+            
+            y_score = np.array(y_score)
+            
+            try:
+                # Si y_score es 2D (probabilidades por clase), usar columna de clase positiva
+                if y_score.ndim == 2 and y_score.shape[1] == 2:
+                    y_score_binary = y_score[:, 1]  # Probabilidad de clase positiva
+                else:
+                    y_score_binary = y_score.flatten()
+                
+                metrics["auc_roc"] = roc_auc_score(y_true, y_score_binary)
+                metrics["f1_score"] = f1_score(y_true, y_pred)
+                metrics["precision"] = precision_score(y_true, y_pred)
+                metrics["recall"] = recall_score(y_true, y_pred)
+                
+                # Calcular sensibilidad y especificidad
+                if cm.shape == (2, 2):
+                    tn, fp, fn, tp = cm.ravel()
+                    metrics["sensitivity"] = tp / (tp + fn) if (tp + fn) > 0 else 0
+                    metrics["specificity"] = tn / (tn + fp) if (tn + fp) > 0 else 0
+                    
+            except Exception as e:
+                print(f"Warning: Could not calculate some binary metrics: {e}")
 
-        # Calcular sensibilidad y especificidad (asumiendo que la clase positiva es 1)
-        tn, fp, fn, tp = cm.ravel()
-        metrics["sensitivity"] = tp / (tp + fn) if (tp + fn) > 0 else 0
-        metrics["specificity"] = tn / (tn + fp) if (tn + fp) > 0 else 0
-
-    # Para problemas multiclase
-    # elif y_score is not None and (len(np.unique(y_true)) > 2):
-    #    # ROC AUC multi-clase (one-vs-rest)
-    #    # metrics["auc_roc"] = roc_auc_score(y_true, y_score, multi_class="ovr")
-
-    return metrics
+        return metrics
+        
+    except Exception as e:
+        return {"error": f"Error calculating metrics: {str(e)}"}
 
 
 def plot_confusion_matrix(cm, class_names, save_path=None) -> None:
@@ -141,8 +169,32 @@ def plot_roc_curve(y_true, y_score, class_names, save_path=None) -> None:
     plt.show()
 
 
-def save_results_to_csv(results_dict, save_path) -> None:
+def save_results_to_csv(y_true, y_pred, y_score, save_path) -> None:
     """Guarda los resultados en un archivo CSV.
+
+    Args:
+        y_true (array): Etiquetas reales  
+        y_pred (array): Predicciones
+        y_score (array): Probabilidades
+        save_path (str): Ruta para guardar el CSV
+
+    """
+    # Asegurarse que el directorio existe
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+    # Crear DataFrame con los resultados
+    df = pd.DataFrame({
+        'y_true': y_true,
+        'y_pred': y_pred,
+        'y_score': y_score if y_score.ndim == 1 else y_score[:, 1]  # Para binario, usar prob clase positiva
+    })
+
+    # Guardar como CSV
+    df.to_csv(save_path, index=False)
+
+
+def save_metrics_to_csv(results_dict, save_path) -> None:
+    """Guarda métricas en un archivo CSV.
 
     Args:
         results_dict (dict): Diccionario con resultados
