@@ -469,7 +469,7 @@ class PETDataset(Dataset):
                     print(f"Cargando imagen: {img_path}")
                     print(f"Dimensiones de la imagen: {img_data.shape}")
                     hdr = nifti.header
-                    print(f"Header de la imagen: {hdr}")
+                    # print(f"Header de la imagen: {hdr}")
 
                 # if img_data.ndim == 4:
                 #     TR = nifti.header["pixdim"][4]
