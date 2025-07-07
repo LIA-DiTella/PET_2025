@@ -3,7 +3,14 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.metrics import (
+    accuracy_score,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 
 
 def calculate_metrics(y_true, y_pred, y_score=None):
@@ -42,7 +49,6 @@ def calculate_metrics(y_true, y_pred, y_score=None):
 
         # Para problemas binarios
         if len(np.unique(y_true)) == 2 and y_score is not None:
-            from sklearn.metrics import roc_auc_score, f1_score, precision_score, recall_score
             
             # Asegurar que y_score sea numpy array
             if not isinstance(y_score, np.ndarray):
@@ -183,6 +189,11 @@ def save_results_to_csv(y_true, y_pred, y_score, save_path) -> None:
     """
     # Asegurarse que el directorio existe
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+    if isinstance(y_true, list):
+        y_true = np.array(y_true)
+    if isinstance(y_pred, list):
+        y_pred = np.array(y_pred)
 
     # Crear DataFrame con los resultados
     df = pd.DataFrame({
