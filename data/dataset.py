@@ -553,9 +553,9 @@ class PETDataset(Dataset):
                 if self.verbose:
                     print(f"Error al procesar imagen {img_path}: {e}")
 
-                import traceback
+                # import traceback
 
-                traceback.print_exc()
+                # traceback.print_exc()
 
         if self.verbose:
             print(f"Total de muestras cargadas: {len(self.samples)} de {count} sujetos")
