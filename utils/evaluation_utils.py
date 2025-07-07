@@ -208,10 +208,12 @@ def save_results_to_csv(y_true, y_pred, y_score, save_path) -> None:
         y_score = np.array(y_score)
 
         # Preparar y_score para guardar (siempre 1D)
-        if y_score.ndim == 2 and y_score.shape[1] == 2:
-            y_score_to_save = y_score[:, 1]  # Probabilidad de clase positiva
-        else:
-            y_score_to_save = y_score.flatten()
+        # if y_score.ndim == 2 and y_score.shape[1] == 2:
+        #     y_score_to_save = y_score[:, 1]  # Probabilidad de clase positiva
+        # else:
+        #     y_score_to_save = y_score.flatten()
+
+        y_score_to_save = y_score.argmax(axis=1)
         
         # Debug: mostrar longitudes si son diferentes
         print(f"Debug save_results_to_csv: y_true={len(y_true)}, y_pred={len(y_pred)}, y_score={len(y_score_to_save)}")
