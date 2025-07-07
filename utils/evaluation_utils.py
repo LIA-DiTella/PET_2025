@@ -217,11 +217,17 @@ def save_results_to_csv(y_true, y_pred, y_score, save_path) -> None:
     # print(type(y_score))
     # print(type(y_pred))
 
+    # Preparar y_score para guardar (siempre 1D)
+    if y_score.ndim == 2 and y_score.shape[1] == 2:
+        y_score_to_save = y_score[:, 1]  # Probabilidad de clase positiva
+    else:
+        y_score_to_save = y_score.flatten()
+    
     # Crear DataFrame con los resultados
     df = pd.DataFrame({
-        'y_true': y_true,
-        'y_pred': y_pred,
-        'y_score': y_score if y_score.ndim == 1 else y_score[:, 1]  # Para binario, usar prob clase positiva
+        'y_true': y_true.flatten(),
+        'y_pred': y_pred.flatten(),
+        'y_score': y_score_to_save
     })
 
     # Guardar como CSV
