@@ -198,40 +198,55 @@ def save_results_to_csv(y_true, y_pred, y_score, save_path) -> None:
         save_path (str): Ruta para guardar el CSV
 
     """
-    # Asegurarse que el directorio existe
-    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    try:
+        # Asegurarse que el directorio existe
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
-    # print("On Save Results to CSV")
+        # Convertir a numpy arrays
+        y_true = np.array(y_true).flatten()
+        y_pred = np.array(y_pred).flatten()
+        y_score = np.array(y_score)
 
-    # print(type(y_score))
-    # print(type(y_pred))
-    if isinstance(y_true, list):
-        y_true = np.array(y_true)
-    if isinstance(y_pred, list):
-        y_pred = np.array(y_pred)
+        # Preparar y_score para guardar (siempre 1D)
+        if y_score.ndim == 2 and y_score.shape[1] == 2:
+            y_score_to_save = y_score[:, 1]  # Probabilidad de clase positiva
+        else:
+            y_score_to_save = y_score.flatten()
+        
+        # Debug: mostrar longitudes si son diferentes
+        print(f"Debug save_results_to_csv: y_true={len(y_true)}, y_pred={len(y_pred)}, y_score={len(y_score_to_save)}")
+        
+        # Verificar que todos los arrays tengan la misma longitud
+        if len(y_true) != len(y_pred) or len(y_true) != len(y_score_to_save):
+            print(f"⚠️  Warning: Arrays con diferentes longitudes - ajustando al mínimo")
+            min_length = min(len(y_true), len(y_pred), len(y_score_to_save))
+            y_true = y_true[:min_length]
+            y_pred = y_pred[:min_length]
+            y_score_to_save = y_score_to_save[:min_length]
+        
+        # Crear DataFrame con los resultados
+        df = pd.DataFrame({
+            'y_true': y_true,
+            'y_pred': y_pred,
+            'y_score': y_score_to_save
+        })
 
-    y_true = np.array(y_true)
-    y_score = np.array(y_score)
-    y_pred = np.array(y_pred)
-
-    # print(type(y_score))
-    # print(type(y_pred))
-
-    # Preparar y_score para guardar (siempre 1D)
-    if y_score.ndim == 2 and y_score.shape[1] == 2:
-        y_score_to_save = y_score[:, 1]  # Probabilidad de clase positiva
-    else:
-        y_score_to_save = y_score.flatten()
-    
-    # Crear DataFrame con los resultados
-    df = pd.DataFrame({
-        'y_true': y_true.flatten(),
-        'y_pred': y_pred.flatten(),
-        'y_score': y_score_to_save
-    })
-
-    # Guardar como CSV
-    df.to_csv(save_path, index=False)
+        # Guardar como CSV
+        df.to_csv(save_path, index=False)
+        
+    except Exception as e:
+        print(f"❌ Error en save_results_to_csv: {e}")
+        # Intentar guardar solo métricas básicas
+        try:
+            basic_df = pd.DataFrame({
+                'error': [str(e)],
+                'y_true_len': [len(y_true) if 'y_true' in locals() else 0],
+                'y_pred_len': [len(y_pred) if 'y_pred' in locals() else 0],
+                'y_score_len': [len(y_score_to_save) if 'y_score_to_save' in locals() else 0]
+            })
+            basic_df.to_csv(save_path, index=False)
+        except:
+            pass
 
 
 def save_metrics_to_csv(results_dict, save_path) -> None:

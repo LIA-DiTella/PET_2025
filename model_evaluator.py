@@ -461,17 +461,17 @@ class ModelEvaluator:
                         # Obtener predicciones (clase con mayor probabilidad)
                         _, predicted = torch.max(outputs, 1)
 
-                        # Guardar resultados
-                        all_targets.extend(target.cpu().numpy())
-                        all_predictions.extend(predicted.cpu().numpy())
+                        # Guardar resultados - asegurar que todos sean listas de elementos individuales
+                        all_targets.extend(target.cpu().numpy().tolist())
+                        all_predictions.extend(predicted.cpu().numpy().tolist())
 
                         # Para problemas binarios, usar probabilidad de la clase positiva
                         if probabilities.shape[1] == 2:
-                            all_scores.extend(probabilities[:, 1].cpu().numpy())
+                            all_scores.extend(probabilities[:, 1].cpu().numpy().tolist())
                         else:
                             # Para multiclase, usar probabilidad máxima
                             max_probs, _ = torch.max(probabilities, 1)
-                            all_scores.extend(max_probs.cpu().numpy())
+                            all_scores.extend(max_probs.cpu().numpy().tolist())
 
                         if (batch_idx + 1) % 50 == 0:
                             print(f"      Procesados {batch_idx + 1}/{len(test_loader)} batches")
