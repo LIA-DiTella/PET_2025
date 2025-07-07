@@ -227,7 +227,7 @@ class BestModelMultiEvaluator:
 
         # Configurar FLENI100 como data2
         multi_config["data2"] = {
-            "dataset_name": "FLENI",
+            "dataset_name": "FLENI100",
             "data_dir": "/home/ipardo/storage1/PET_2025/data/NIFTIs/fleni100/converted_niftis/",
             "test_csv": "/home/ipardo/storage1/PET_2025/data/NIFTIs/fleni100/fleni100.csv",
             "classes": original_config["data"]["classes"],
@@ -243,7 +243,7 @@ class BestModelMultiEvaluator:
 
         # Configurar FLENI600 como data3
         multi_config["data3"] = {
-            "dataset_name": "FLENI",
+            "dataset_name": "FLENI600",
             "data_dir": "/home/ipardo/storage1/PET_2025/data/NIFTIs/fleni600/converted_niftis/",
             "test_csv": "/home/ipardo/storage1/PET_2025/data/NIFTIs/fleni600/fleni600.csv",
             "classes": original_config["data"]["classes"],
