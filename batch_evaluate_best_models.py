@@ -1,19 +1,20 @@
 """
-Script para evaluar automáticamente los mejores modelos entrenados en múltiples conjuntos de datos.
+Script para evaluar automáticamente los mejor        ]
+
+    def find_all_experiments(self) -> List[Dict]:renados en múltiples conjuntos de datos.
 
 Este script:
-1. Encuentra todos los experimentos completados de entrenamiento por lotes
-2. Selecciona el mejor modelo para cada combinación (modelo, dimensión)
+1. Busca todos los experimentos válidos en el directorio de experimentos
+2. Selecciona el mejor modelo para cada combinación (modelo, dimensión) basado en métricas
 3. Evalúa cada mejor modelo en todos los conjuntos de prueba disponibles (ADNI, FLENI100, FLENI600)
-4. Genera un reporte complejo con métricas de evaluación
+4. Genera un reporte completo con métricas de evaluación
 """
 
 import argparse
 import json
 import os
-import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 
 import pandas as pd
 import torch
@@ -60,97 +61,155 @@ class BestModelMultiEvaluator:
         with open(results_file, "r") as f:
             return json.load(f)
 
-    def find_best_models_per_combination(self, batch_results: Dict) -> Dict:
+    def find_best_models_per_combination(self, experiments: List[Dict]) -> Dict:
         """Encuentra el mejor modelo para cada combinación (modelo, dimensión).
         
         Args:
-            batch_results: Resultados del entrenamiento por lotes
+            experiments: Lista de experimentos encontrados
             
         Returns:
             Dict con la estructura: {model_dim_key: best_experiment_info}
         """
         best_models = {}
         
-        for task_key, task_results in batch_results.items():
-            if not task_results:
+        for experiment in experiments:
+            model = experiment["model"]
+            dimension = experiment["dimension"]
+            metrics = experiment["metrics"]
+            
+            # Saltar si no hay métricas válidas
+            if not metrics:
                 continue
                 
-            # Extraer información de la tarea
-            task_info = task_results[0].get("task", {})
-            model = task_info.get("model", "unknown")
-            dimension = task_info.get("dimension", "unknown")
-            
             # Clave para agrupar por modelo y dimensión
             model_dim_key = f"{model}_{dimension}"
             
-            # Encontrar el mejor resultado basado en AUC ROC
-            best_result = None
-            best_auc = -1
+            # Intentar obtener AUC de diferentes posibles nombres de columna
+            auc = -1
+            auc_keys = ["auc_roc", "auc", "roc_auc", "test_auc", "val_auc"]
             
-            for result in task_results:
-                if "evaluation" not in result or not result["evaluation"]:
-                    continue
-                    
-                auc = result["evaluation"].get("auc_roc", -1)
-                if isinstance(auc, (list, tuple)):
-                    auc = float(auc[0]) if len(auc) > 0 else -1
-                else:
-                    auc = float(auc) if auc is not None else -1
-                    
-                if auc > best_auc:
-                    best_auc = auc
-                    best_result = result
+            for key in auc_keys:
+                if key in metrics and metrics[key] is not None:
+                    try:
+                        auc_val = float(metrics[key])
+                        if auc_val > auc:
+                            auc = auc_val
+                    except (ValueError, TypeError):
+                        continue
+            
+            # Si no encontramos AUC, usar accuracy como métrica alternativa
+            if auc == -1:
+                acc_keys = ["accuracy", "test_accuracy", "val_accuracy", "acc"]
+                for key in acc_keys:
+                    if key in metrics and metrics[key] is not None:
+                        try:
+                            auc = float(metrics[key])
+                            break
+                        except (ValueError, TypeError):
+                            continue
+            
+            # Saltar si no pudimos obtener ninguna métrica útil
+            if auc == -1:
+                continue
             
             # Actualizar el mejor modelo para esta combinación si es mejor que el actual
-            if best_result and (model_dim_key not in best_models or best_auc > best_models[model_dim_key]["auc"]):
+            if model_dim_key not in best_models or auc > best_models[model_dim_key]["auc"]:
                 best_models[model_dim_key] = {
-                    "task_key": task_key,
-                    "result": best_result,
-                    "auc": best_auc,
+                    "experiment": experiment,
+                    "auc": auc,
                     "model": model,
                     "dimension": dimension,
                 }
                 
         return best_models
 
-    def find_experiment_checkpoint(self, config_path: str) -> Optional[Path]:
-        """Encuentra el checkpoint del mejor modelo para un experimento.
+    def find_all_experiments(self) -> List[Dict]:
+        """Busca todos los experimentos válidos en el directorio de experimentos.
+        
+        Returns:
+            Lista de diccionarios con información de cada experimento
+        """
+        experiments = []
+        
+        if not self.experiments_dir.exists():
+            print(f"❌ Directorio de experimentos no encontrado: {self.experiments_dir}")
+            return experiments
+            
+        for exp_dir in self.experiments_dir.iterdir():
+            if not exp_dir.is_dir():
+                continue
+                
+            # Verificar si tiene estructura válida
+            config_file = exp_dir / "config.yaml"
+            checkpoint_file = exp_dir / "checkpoints" / "best_model.pth"
+            metrics_file = exp_dir / "results" / "test_metrics.csv"
+            
+            if not (config_file.exists() and checkpoint_file.exists()):
+                continue
+                
+            # Extraer información del nombre del experimento
+            exp_name = exp_dir.name
+            exp_info = self.parse_experiment_name(exp_name)
+            
+            # Leer métricas si existen
+            metrics = {}
+            if metrics_file.exists():
+                try:
+                    import pandas as pd
+                    df = pd.read_csv(metrics_file)
+                    if not df.empty:
+                        # Tomar la última fila (mejores métricas)
+                        metrics = df.iloc[-1].to_dict()
+                except Exception as e:
+                    print(f"⚠️  Error leyendo métricas de {exp_name}: {e}")
+            
+            experiment = {
+                "name": exp_name,
+                "path": exp_dir,
+                "config_path": config_file,
+                "checkpoint_path": checkpoint_file,
+                "metrics_path": metrics_file,
+                "model": exp_info.get("model", "unknown"),
+                "dimension": exp_info.get("dimension", "unknown"),
+                "metrics": metrics
+            }
+            
+            experiments.append(experiment)
+            
+        return experiments
+    
+    def parse_experiment_name(self, exp_name: str) -> Dict:
+        """Extrae información del nombre del experimento.
         
         Args:
-            config_path: Ruta al archivo de configuración del experimento
+            exp_name: Nombre del directorio del experimento
             
         Returns:
-            Path al checkpoint del mejor modelo o None si no se encuentra
+            Dict con model, dimension, etc.
         """
-        if not config_path or not os.path.exists(config_path):
-            return None
-            
-        # Extraer nombre del experimento desde el config path
-        experiment_name = Path(config_path).stem
+        # Buscar patrones comunes
+        model = "unknown"
+        dimension = "unknown"
         
-        # Buscar en el directorio de experimentos
-        exp_dir = self.experiments_dir / experiment_name
-        if not exp_dir.exists():
-            print(f"⚠️  Directorio de experimento no encontrado: {exp_dir}")
-            return None
+        # Intentar extraer modelo y dimensión
+        if "resnet18" in exp_name.lower():
+            model = "resnet18"
+        elif "inceptionv3" in exp_name.lower():
+            model = "inceptionv3"
+        elif "vit" in exp_name.lower():
+            model = "vit"
+        elif "swin" in exp_name.lower():
+            model = "swin"
             
-        # Buscar checkpoint en el directorio de checkpoints
-        checkpoints_dir = exp_dir / "checkpoints"
-        if not checkpoints_dir.exists():
-            print(f"⚠️  Directorio de checkpoints no encontrado: {checkpoints_dir}")
-            return None
+        if "2d" in exp_name.lower():
+            dimension = "2d"
+        elif "3d" in exp_name.lower():
+            dimension = "3d"
             
-        # Buscar el mejor checkpoint
-        best_checkpoint = checkpoints_dir / "best_model.pth"
-        if best_checkpoint.exists():
-            return best_checkpoint
-            
-        # Si no existe best_model.pth, buscar cualquier checkpoint
-        checkpoints = list(checkpoints_dir.glob("*.pth"))
-        if checkpoints:
-            return max(checkpoints, key=os.path.getctime)
-            
-        return None
+        return {
+            "model": model,
+            "dimension": dimension
+        }
 
     def create_multi_eval_config(self, original_config_path: str) -> str:
         """Crea una configuración con múltiples conjuntos de datos para evaluación.
@@ -199,25 +258,23 @@ class BestModelMultiEvaluator:
         """Evalúa un modelo en todos los conjuntos de datos disponibles.
         
         Args:
-            model_info: Información del modelo con resultado, config_path, etc.
+            model_info: Información del modelo con experimento, checkpoint, etc.
             
         Returns:
             Dict con resultados de evaluación en todos los datasets
         """
-        config_path = model_info["result"].get("config_path")
-        if not config_path:
-            print(f"❌ No se encontró config_path para {model_info['model']}_{model_info['dimension']}")
-            return {}
-            
-        # Encontrar checkpoint
-        checkpoint_path = self.find_experiment_checkpoint(config_path)
-        if not checkpoint_path:
-            print(f"❌ No se encontró checkpoint para {model_info['model']}_{model_info['dimension']}")
+        experiment = model_info["experiment"]
+        config_path = str(experiment["config_path"])
+        checkpoint_path = str(experiment["checkpoint_path"])
+        
+        if not os.path.exists(checkpoint_path):
+            print(f"❌ No se encontró checkpoint: {checkpoint_path}")
             return {}
             
         print(f"🔍 Evaluando {model_info['model']}_{model_info['dimension']}:")
+        print(f"   Experimento: {experiment['name']}")
         print(f"   Checkpoint: {checkpoint_path}")
-        print(f"   AUC original: {model_info['auc']:.4f}")
+        print(f"   Métrica original: {model_info['auc']:.4f}")
         
         # Crear configuración con múltiples datasets
         multi_config_path = self.create_multi_eval_config(config_path)
@@ -225,7 +282,7 @@ class BestModelMultiEvaluator:
         try:
             # Cargar modelo
             model, original_config = self.evaluator.load_model_from_checkpoint(
-                str(checkpoint_path), multi_config_path
+                checkpoint_path, multi_config_path
             )
             
             evaluation_results = {}
@@ -247,9 +304,9 @@ class BestModelMultiEvaluator:
                         
                     # Crear directorio de salida para este dataset
                     dataset_output_dir = (
-                        self.output_dir / 
-                        f"{model_info['model']}_{model_info['dimension']}" / 
-                        dataset_name
+                        self.output_dir
+                        / f"{model_info['model']}_{model_info['dimension']}"
+                        / dataset_name
                     )
                     dataset_output_dir.mkdir(parents=True, exist_ok=True)
                     
@@ -329,21 +386,24 @@ class BestModelMultiEvaluator:
         """
         print("🚀 Iniciando evaluación de mejores modelos en múltiples datasets")
         
-        # Cargar resultados del entrenamiento por lotes
-        batch_results = self.load_batch_results()
-        if not batch_results:
+        # Buscar todos los experimentos
+        experiments = self.find_all_experiments()
+        if not experiments:
+            print("❌ No se encontraron experimentos válidos")
             return {}
             
+        print(f"🔍 Encontrados {len(experiments)} experimentos")
+        
         # Encontrar mejores modelos por combinación
-        best_models = self.find_best_models_per_combination(batch_results)
+        best_models = self.find_best_models_per_combination(experiments)
         
         if not best_models:
-            print("❌ No se encontraron modelos entrenados")
+            print("❌ No se encontraron modelos con métricas válidas")
             return {}
             
-        print(f"📋 Mejores modelos encontrados:")
+        print("📋 Mejores modelos encontrados:")
         for model_dim_key, info in best_models.items():
-            print(f"   {model_dim_key}: AUC={info['auc']:.4f}")
+            print(f"   {model_dim_key}: Métrica={info['auc']:.4f}")
             
         # Evaluar cada mejor modelo en todos los datasets
         all_results = {}
@@ -373,7 +433,7 @@ class BestModelMultiEvaluator:
         with open(results_path, "w") as f:
             json.dump(self._make_serializable(all_results), f, indent=2)
             
-        print(f"🎉 Evaluación completada!")
+        print("🎉 Evaluación completada!")
         print(f"   📋 Reporte: {report_path}")
         print(f"   📋 Resultados completos: {results_path}")
         
@@ -413,12 +473,6 @@ def parse_args():
         description="Evaluación automática de mejores modelos en múltiples conjuntos de datos"
     )
     parser.add_argument(
-        "--batch_results_dir",
-        type=str,
-        default="./batch_results",
-        help="Directorio con resultados del entrenamiento por lotes"
-    )
-    parser.add_argument(
         "--experiments_dir",
         type=str,
         default="./experiments",
@@ -438,7 +492,7 @@ if __name__ == "__main__":
     args = parse_args()
     
     evaluator = BestModelMultiEvaluator(
-        batch_results_dir=args.batch_results_dir,
+        batch_results_dir="./batch_results",  # No se usa pero mantenemos para compatibilidad
         experiments_dir=args.experiments_dir,
         output_dir=args.output_dir
     )
