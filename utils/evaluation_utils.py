@@ -54,6 +54,12 @@ def calculate_metrics(y_true, y_pred, y_score=None):
             if not isinstance(y_score, np.ndarray):
                 y_score = np.array(y_score)
             
+            print(type(y_score))
+            print(type(y_pred))
+
+            y_score = np.array(y_score)
+            y_pred = np.array(y_pred)
+
             try:
                 print(type(y_score))
                 # Si y_score es 2D (probabilidades por clase), usar columna de clase positiva
@@ -196,6 +202,12 @@ def save_results_to_csv(y_true, y_pred, y_score, save_path) -> None:
         y_true = np.array(y_true)
     if isinstance(y_pred, list):
         y_pred = np.array(y_pred)
+
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred)
+
+    print(type(y_score))
+    print(type(y_pred))
 
     # Crear DataFrame con los resultados
     df = pd.DataFrame({
