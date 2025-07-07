@@ -1,3 +1,4 @@
+# flake8: noqa
 """
 Script para cargar modelos ya entrenados y evaluarlos en diferentes conjuntos de datos.
 

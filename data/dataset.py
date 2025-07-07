@@ -1,3 +1,6 @@
+# flake8: noqa
+# noqa: E203
+
 import os
 
 # import nibabel as nib
