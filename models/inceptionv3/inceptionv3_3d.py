@@ -144,14 +144,13 @@ class InceptionV3_3D(nn.Module):
         # donde frames es la dimensión temporal (depth en nuestro caso)
 
         # Dimensiones mínimas requeridas por I3D para avg_pool (kernel [2, 7, 7])
-        if (
-            ((x.ndim == 5) and (x.shape[1:] == (3, 224, 224, 16)))
-            or ((x.ndim == 4) and (x.shape == (3, 224, 224, 16)))
+        if ((x.ndim == 5) and (x.shape[1:] == (3, 224, 224, 16))) or (
+            (x.ndim == 4) and (x.shape == (3, 224, 224, 16))
         ):
-            if (x.ndim == 4):
+            if x.ndim == 4:
                 # reshape from (3, 224, 224, 16) to (3, 16, 224, 224)
                 x = x.permute(0, 3, 1, 2)
-            elif (x.ndim == 5):
+            elif x.ndim == 5:
                 # reshape from (batch_size, 3, 224, 224, 16) to (batch_size, 3, 16, 224, 224)
                 x = x.permute(0, 1, 4, 2, 3)
 
@@ -168,7 +167,7 @@ class InceptionV3_3D(nn.Module):
 
         min_depth = 16  # Para mejor rendimiento temporal
         min_height = 7  # Mínimo para el kernel de altura
-        min_width = 7   # Mínimo para el kernel de ancho
+        min_width = 7  # Mínimo para el kernel de ancho
 
         # Asegurar dimensión temporal (depth) mínima
         if x.size(2) < min_depth:
@@ -186,10 +185,7 @@ class InceptionV3_3D(nn.Module):
 
             # Usar interpolación trilineal para redimensionar
             x = torch.nn.functional.interpolate(
-                x,
-                size=(depth, new_height, new_width),
-                mode='trilinear',
-                align_corners=False
+                x, size=(depth, new_height, new_width), mode="trilinear", align_corners=False
             )
 
         # Forward pass a través del modelo I3D

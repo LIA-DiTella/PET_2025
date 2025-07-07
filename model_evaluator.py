@@ -24,7 +24,7 @@ import torch
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Importar módulos propios
-from data.dataset import get_data_loaders, get_test_data_loader
+from data.dataset import get_test_data_loader
 from models.inceptionv3.inceptionv3_2d import get_inceptionv3_2d
 from models.inceptionv3.inceptionv3_3d import get_inceptionv3_3d
 from models.resnet18.resnet18_2d import get_resnet18_2d
@@ -544,7 +544,7 @@ class ModelEvaluator:
                 indent=2,
             )
 
-        print(f"\n🎉 Evaluación cruzada completada!")
+        print("\n🎉 Evaluación cruzada completada!")
         print(f"📋 Resumen guardado en: {summary_path}")
 
         return all_results

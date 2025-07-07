@@ -92,7 +92,9 @@ def train_model(config_path, gpu_id=None, data_loaders=None, use_otsu_masking=No
         if "data" not in config:
             config["data"] = {}
         config["data"]["use_otsu_masking"] = use_otsu_masking
-        print(f"🎯 Umbralizado de Otsu: {'✅ Habilitado' if use_otsu_masking else '❌ Deshabilitado'} (override)")
+        print(
+            f"🎯 Umbralizado de Otsu: {'✅ Habilitado' if use_otsu_masking else '❌ Deshabilitado'} (override)"
+        )
 
     # Configurar dispositivo
     if gpu_id is not None and torch.cuda.is_available():
@@ -180,15 +182,17 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    
+
     # Determinar configuración de Otsu masking
     otsu_override = None
     if args.use_otsu_masking and args.no_otsu_masking:
-        print("⚠️  Ambos --use_otsu_masking y --no_otsu_masking especificados. Usando --no_otsu_masking")
+        print(
+            "⚠️  Ambos --use_otsu_masking y --no_otsu_masking especificados. Usando --no_otsu_masking"
+        )
         otsu_override = False
     elif args.use_otsu_masking:
         otsu_override = True
     elif args.no_otsu_masking:
         otsu_override = False
-    
+
     results = train_model(args.config, args.gpu, use_otsu_masking=otsu_override)

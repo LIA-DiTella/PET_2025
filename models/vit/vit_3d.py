@@ -1,7 +1,7 @@
 # import torch
 # import torch.nn.functional as F
 from torch import nn
-from torchvision.models.video import mvit_v1_b, mvit_v2_s, MViT_V1_B_Weights, MViT_V2_S_Weights
+from torchvision.models.video import MViT_V1_B_Weights, MViT_V2_S_Weights, mvit_v1_b, mvit_v2_s
 
 variants_enum = {
     "mvit_v1_b": mvit_v1_b,
@@ -74,9 +74,7 @@ class ViT_3D(nn.Module):
 
         in_features = self.model.head[1].in_features
 
-        self.model.head = nn.Sequential(
-            nn.Linear(in_features, num_classes), nn.Softmax(dim=1)
-        )
+        self.model.head = nn.Sequential(nn.Linear(in_features, num_classes), nn.Softmax(dim=1))
 
         set_dropout(self.model, dropout_rate)
 

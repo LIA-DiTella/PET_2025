@@ -782,7 +782,7 @@ def parse_args():
     parser.add_argument(
         "--auto_evaluate_best",
         action="store_true",
-        help="Evaluar automáticamente los mejores modelos en múltiples datasets después del entrenamiento"
+        help="Evaluar automáticamente los mejores modelos en múltiples datasets después del entrenamiento",
     )
 
     return parser.parse_args()
@@ -815,21 +815,21 @@ if __name__ == "__main__":
         print("\n🔄 Iniciando evaluación automática de mejores modelos...")
         try:
             from batch_evaluate_best_models import BestModelMultiEvaluator
-            
+
             evaluator = BestModelMultiEvaluator(
                 batch_results_dir=args.results_dir,
                 experiments_dir="./experiments",
-                output_dir=f"{args.results_dir}/best_models_evaluation"
+                output_dir=f"{args.results_dir}/best_models_evaluation",
             )
-            
+
             auto_eval_results = evaluator.run_evaluation()
-            
+
             if auto_eval_results:
                 print("\n📊 Evaluación automática completada!")
                 print(f"   Resultados guardados en: {args.results_dir}/best_models_evaluation/")
             else:
                 print("\n⚠️  No se pudo completar la evaluación automática")
-                
+
         except ImportError as e:
             print(f"\n❌ Error importando evaluador automático: {e}")
         except Exception as e:

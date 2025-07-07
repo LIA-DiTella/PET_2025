@@ -3,10 +3,9 @@ import os
 # import nibabel as nib
 import numpy as np
 import pandas as pd
+import scipy.ndimage as ndi
 import torch
 from nilearn import image as nli
-
-# import torch
 from sklearn.utils import resample
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
@@ -113,6 +112,10 @@ class PETDataset(Dataset):
         output_size=(224, 224),
         channels=3,
         use_otsu_masking=True,
+        use_surface_filtering=False,
+        min_slice_surface=100.0 * 100.0,
+        pixel_surface=1.5,
+        min_slice_surface_threshold=0.0,
     ) -> None:
         """Inicializa el dataset.
 
@@ -125,6 +128,10 @@ class PETDataset(Dataset):
             mode (str): Modo de operación ('train', 'val', 'test')
             limit (int, opcional): Límite de sujetos a cargar (para pruebas)
             use_otsu_masking (bool): Si aplicar umbralizado de Otsu para máscara cerebral
+            use_surface_filtering (bool): Si aplicar filtrado por superficie mínima de cortes
+            min_slice_surface (float): Superficie mínima requerida para conservar un corte
+            pixel_surface (float): Superficie por píxel (mm²)
+            min_slice_surface_threshold (float): Umbral mínimo de intensidad para considerar un píxel
 
         """
         self.data_dir = data_dir
@@ -142,6 +149,12 @@ class PETDataset(Dataset):
         self.output_size = output_size  # Tamaño de salida para las imágenes procesadas
         self.channels = channels  # Número de canales de salida (1 para 2D, 3 para RGB)
         self.use_otsu_masking = use_otsu_masking  # Si aplicar umbralizado de Otsu
+
+        # Parámetros para filtrado por superficie
+        self.use_surface_filtering = use_surface_filtering
+        self.min_slice_surface = min_slice_surface
+        self.pixel_surface = pixel_surface
+        self.min_slice_surface_threshold = min_slice_surface_threshold
 
         # Cargar metadatos
         df = pd.read_csv(csv_path)
@@ -226,6 +239,27 @@ class PETDataset(Dataset):
         return None
 
     def process_image(self, img_data):
+        # Aplicar filtrado por superficie si está habilitado
+        slice_indices_to_delete = []
+        if self.use_surface_filtering:
+            try:
+                slice_indices_to_delete = get_indices_to_be_deleted(
+                    img_data,
+                    min_slice_surface=self.min_slice_surface,
+                    pixel_surface=self.pixel_surface,
+                    min_slice_surface_threshold=self.min_slice_surface_threshold,
+                )
+                if self.verbose and len(slice_indices_to_delete) > 0:
+                    print(
+                        f"Eliminando {len(slice_indices_to_delete)} cortes por superficie insuficiente"
+                    )
+
+                # Eliminar cortes con superficie insuficiente
+                img_data = np.delete(img_data, slice_indices_to_delete, axis=2)
+            except Exception as e:
+                if self.verbose:
+                    print(f"Warning: No se pudo aplicar filtrado por superficie: {e}")
+
         # Aplicar umbralizado de Otsu si está habilitado
         if self.use_otsu_masking:
             img_data = apply_brain_mask(img_data, use_otsu=True)
@@ -250,7 +284,7 @@ class PETDataset(Dataset):
 
             intensity_dist = np.sum(np.abs(img_data), axis=(0, 1))
             # Obtener el índice del corte con mayor intensidad
-            top_indices = np.argsort(intensity_dist)[-self.num_slices:]
+            top_indices = np.argsort(intensity_dist)[-self.num_slices :]
             # Ordenar los índices seleccionados
             slice_indices = sorted(top_indices.tolist())
         elif self.slice_selection == "uniform":
@@ -638,6 +672,12 @@ def get_data_loaders(config):
     channels = data_config.get("channels", 3)  # Número de canales de salida (1 para 2D, 3 para RGB)
     use_otsu_masking = data_config.get("use_otsu_masking", True)  # Umbralizado de Otsu por defecto
 
+    # Parámetros para filtrado por superficie (del preprocesamiento de Hugo)
+    use_surface_filtering = data_config.get("use_surface_filtering", False)
+    min_slice_surface = data_config.get("min_slice_surface", 100.0 * 100.0)
+    pixel_surface = data_config.get("pixel_surface", 1.5)
+    min_slice_surface_threshold = data_config.get("min_slice_surface_threshold", 0.0)
+
     # Directorios y archivos
     data_dir = data_config.get("data_dir", "./data")
     train_csv = data_config.get("train_csv")
@@ -668,6 +708,10 @@ def get_data_loaders(config):
         output_size=output_size,
         channels=channels,
         use_otsu_masking=use_otsu_masking,
+        use_surface_filtering=use_surface_filtering,
+        min_slice_surface=min_slice_surface,
+        pixel_surface=pixel_surface,
+        min_slice_surface_threshold=min_slice_surface_threshold,
     )
 
     val_dataset = (
@@ -684,6 +728,10 @@ def get_data_loaders(config):
             output_size=output_size,
             channels=channels,
             use_otsu_masking=use_otsu_masking,
+            use_surface_filtering=use_surface_filtering,
+            min_slice_surface=min_slice_surface,
+            pixel_surface=pixel_surface,
+            min_slice_surface_threshold=min_slice_surface_threshold,
         )
         if val_csv
         else None
@@ -703,6 +751,10 @@ def get_data_loaders(config):
             output_size=output_size,
             channels=channels,
             use_otsu_masking=use_otsu_masking,
+            use_surface_filtering=use_surface_filtering,
+            min_slice_surface=min_slice_surface,
+            pixel_surface=pixel_surface,
+            min_slice_surface_threshold=min_slice_surface_threshold,
         )
         if test_csv
         else None
@@ -857,6 +909,104 @@ def apply_brain_mask(image, use_otsu=True, min_threshold_percentile=5):
     return masked_image
 
 
+def clipped_zoom(img, zoom_factor, **kwargs):
+    """
+    Aplica zoom con recorte controlado manteniendo las dimensiones originales.
+
+    Args:
+        img (np.ndarray): Imagen de entrada con forma (H, W) o (H, W, C)
+        zoom_factor (float): Factor de zoom (>1 acerca, <1 aleja)
+        **kwargs: Argumentos adicionales para ndi.zoom
+
+    Returns:
+        np.ndarray: Imagen con zoom aplicado y dimensiones originales
+    """
+    h, w = img.shape[:2]
+
+    # Para imágenes multicanal, no aplicar zoom al canal RGB
+    # Crear tupla de factores de zoom con 1's para dimensiones después de ancho y alto
+    zoom_tuple = (zoom_factor,) * 2 + (1,) * (img.ndim - 2)
+
+    # Zoom out (alejar)
+    if zoom_factor < 1:
+        # Caja delimitadora de la imagen alejada dentro del array de salida
+        zh = int(np.round(h * zoom_factor))
+        zw = int(np.round(w * zoom_factor))
+        top = (h - zh) // 2
+        left = (w - zw) // 2
+
+        # Relleno con ceros
+        out = np.zeros_like(img)
+        out[top : top + zh, left : left + zw] = ndi.zoom(img, zoom_tuple, **kwargs)
+
+    # Zoom in (acercar)
+    elif zoom_factor > 1:
+        # Caja delimitadora de la región acercada dentro del array de entrada
+        zh = int(np.round(h / zoom_factor))
+        zw = int(np.round(w / zoom_factor))
+        top = (h - zh) // 2
+        left = (w - zw) // 2
+
+        out = ndi.zoom(img[top : top + zh, left : left + zw], zoom_tuple, **kwargs)
+
+        # `out` podría ser ligeramente más grande que `img` debido al redondeo,
+        # así que recortar píxeles extra en los bordes
+        trim_top = (out.shape[0] - h) // 2
+        trim_left = (out.shape[1] - w) // 2
+        out = out[trim_top : trim_top + h, trim_left : trim_left + w]
+
+    # Si zoom_factor == 1, devolver el array de entrada
+    else:
+        out = img
+    return out
+
+
+def get_indices_to_be_deleted(
+    sample, min_slice_surface=None, pixel_surface=1.5, min_slice_surface_threshold=0.0
+):
+    """
+    Devuelve un array de índices que deben ser borrados de la imagen NIfTI
+    por no cumplir una superficie mínima.
+
+    Args:
+        sample: Imagen NIfTI o array numpy 3D
+        min_slice_surface (float): Superficie mínima requerida para conservar un corte
+        pixel_surface (float): Superficie por píxel (mm²)
+        min_slice_surface_threshold (float): Umbral mínimo de intensidad para considerar un píxel
+
+    Returns:
+        list: Lista de índices de cortes a eliminar
+    """
+    # Chequeo de eliminar slices por superficie
+    if min_slice_surface is None:
+        return []
+
+    # Obtener datos de la imagen
+    if hasattr(sample, "get_fdata"):
+        brain_vol_data = sample.get_fdata()
+    else:
+        brain_vol_data = sample
+
+    with_more_than_100 = 0
+    delete_indices = []
+    if min_slice_surface <= 0.0:
+        raise Exception("min_slice_surface should be > 0.0")
+
+    for i in range(0, brain_vol_data.shape[2]):
+        surface = 0.0
+        slice_matrix = brain_vol_data[:, :, i]
+        slice_array = slice_matrix.reshape(-1)
+        surface = ((slice_array > min_slice_surface_threshold).sum()) * pixel_surface
+        if surface >= min_slice_surface:
+            with_more_than_100 += 1
+        else:
+            delete_indices.append(i)
+        if with_more_than_100 < 16:
+            raise Exception("No enough brain surface (" + str(with_more_than_100) + " slices)")
+
+    return delete_indices
+
+
 def get_test_data_loader(config, data_config_key="data"):
     """Crea solo un data loader de test para evaluación.
 
@@ -899,6 +1049,12 @@ def get_test_data_loader(config, data_config_key="data"):
     channels = data_config.get("channels", 3)
     use_otsu_masking = data_config.get("use_otsu_masking", True)
 
+    # Parámetros para filtrado por superficie
+    use_surface_filtering = data_config.get("use_surface_filtering", False)
+    min_slice_surface = data_config.get("min_slice_surface", 100.0 * 100.0)
+    pixel_surface = data_config.get("pixel_surface", 1.5)
+    min_slice_surface_threshold = data_config.get("min_slice_surface_threshold", 0.0)
+
     # Archivos y directorios
     data_dir = data_config.get("data_dir", "./data")
     test_csv = data_config.get("test_csv")
@@ -940,6 +1096,10 @@ def get_test_data_loader(config, data_config_key="data"):
             output_size=output_size,
             channels=channels,
             use_otsu_masking=use_otsu_masking,
+            use_surface_filtering=use_surface_filtering,
+            min_slice_surface=min_slice_surface,
+            pixel_surface=pixel_surface,
+            min_slice_surface_threshold=min_slice_surface_threshold,
         )
 
         # Crear data loader

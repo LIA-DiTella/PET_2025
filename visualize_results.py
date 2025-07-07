@@ -46,7 +46,7 @@ def table2df(table_path):
     current_values = dict.fromkeys(header[:4], "")  # Modelo, Dim, Train, Eval
 
     # Extraer datos
-    for line in lines[header_idx + 2:]:  # Saltar encabezado y separador
+    for line in lines[header_idx + 2 :]:  # Saltar encabezado y separador
         if "|" not in line or "*" in line:  # Saltar líneas sin datos o leyendas
             continue
 
