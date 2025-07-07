@@ -347,6 +347,170 @@ class ModelEvaluator:
 
         return all_results
 
+    def load_all_evaluation_datasets(self, original_config: Dict) -> Dict:
+        """Carga todos los datasets de evaluación al inicio.
+        
+        Args:
+            original_config: Configuración que puede contener data, data2, data3, etc.
+            
+        Returns:
+            Dict con test loaders pre-cargados para cada configuración
+        """
+        print("\n🔄 Cargando todos los datasets de evaluación...")
+        
+        # Encontrar todas las configuraciones de datos (data, data2, data3, etc.)
+        data_configs = {}
+        for key, value in original_config.items():
+            if key.startswith("data") and isinstance(value, dict):
+                data_configs[key] = value
+                print(f"   📊 Encontrada configuración: {key} - {value.get('dataset_name', 'N/A')}")
+
+        if not data_configs:
+            print("⚠️  No se encontraron configuraciones de datos")
+            return {}
+
+        test_loaders_cache = {}
+        
+        for config_name, data_config in data_configs.items():
+            dataset_name = data_config.get("dataset_name", config_name)
+            
+            try:
+                # Crear configuración temporal para esta evaluación
+                temp_config = original_config.copy()
+                temp_config["data"] = data_config
+
+                # Obtener solo el test loader para esta configuración
+                test_loader = get_test_data_loader(temp_config, "data")
+
+                if test_loader is not None:
+                    test_loaders_cache[config_name] = test_loader
+                    print(f"      ✅ {dataset_name}: {len(test_loader.dataset)} muestras")
+                else:
+                    print(f"      ❌ {dataset_name}: No se pudo crear test loader")
+                    test_loaders_cache[config_name] = None
+                    
+            except Exception as e:
+                print(f"      ❌ Error cargando {dataset_name}: {e}")
+                test_loaders_cache[config_name] = None
+                
+        loaded_count = len([k for k, v in test_loaders_cache.items() if v is not None])
+        print(f"✅ Datasets de evaluación cargados: {loaded_count}/{len(data_configs)}")
+        
+        return test_loaders_cache
+
+    def evaluate_on_multiple_datasets_optimized(
+        self,
+        model: torch.nn.Module,
+        original_config: Dict,
+        test_loaders_cache: Optional[Dict] = None,
+        output_dir: Optional[str] = None
+    ) -> Dict:
+        """Evalúa un modelo en múltiples datasets usando test loaders pre-cargados.
+
+        Args:
+            model: Modelo ya cargado
+            original_config: Configuración original
+            test_loaders_cache: Dict con test loaders pre-cargados. Si None, se cargan
+            output_dir: Directorio para guardar resultados
+
+        Returns:
+            Diccionario con resultados para cada configuración de datos
+        """
+        # Si no se proporcionó cache, cargar datasets
+        if test_loaders_cache is None:
+            test_loaders_cache = self.load_all_evaluation_datasets(original_config)
+        
+        if not test_loaders_cache:
+            print("⚠️  No hay datasets disponibles para evaluación")
+            return {}
+
+        all_results = {}
+
+        for config_name, test_loader in test_loaders_cache.items():
+            if test_loader is None:
+                continue
+                
+            print(f"\n📊 Evaluando configuración: {config_name}")
+            
+            # Obtener información del dataset desde la configuración original
+            data_config = original_config.get(config_name, {})
+            dataset_name = data_config.get("dataset_name", config_name)
+
+            print(f"   📈 Usando test loader pre-cargado - {len(test_loader.dataset)} muestras")
+
+            try:
+                # Evaluar el modelo usando el test loader pre-cargado
+                all_targets = []
+                all_predictions = []
+                all_scores = []
+
+                print(f"   🔍 Evaluando en {dataset_name}...")
+                start_time = time.time()
+                
+                with torch.no_grad():
+                    for batch_idx, (data, target) in enumerate(test_loader):
+                        data, target = data.to(self.device), target.to(self.device)
+
+                        # Hacer predicciones
+                        outputs = model(data)
+
+                        # Aplicar softmax para obtener probabilidades
+                        probabilities = torch.softmax(outputs, dim=1)
+
+                        # Obtener predicciones (clase con mayor probabilidad)
+                        _, predicted = torch.max(outputs, 1)
+
+                        # Guardar resultados
+                        all_targets.extend(target.cpu().numpy())
+                        all_predictions.extend(predicted.cpu().numpy())
+
+                        # Para problemas binarios, usar probabilidad de la clase positiva
+                        if probabilities.shape[1] == 2:
+                            all_scores.extend(probabilities[:, 1].cpu().numpy())
+                        else:
+                            # Para multiclase, usar probabilidad máxima
+                            max_probs, _ = torch.max(probabilities, 1)
+                            all_scores.extend(max_probs.cpu().numpy())
+
+                        if (batch_idx + 1) % 50 == 0:
+                            print(f"      Procesados {batch_idx + 1}/{len(test_loader)} batches")
+
+                eval_time = time.time() - start_time
+                print(f"   ⏱️  Evaluación completada en {eval_time:.1f}s")
+
+                # Calcular métricas
+                metrics = calculate_metrics(
+                    np.array(all_targets),
+                    np.array(all_predictions),
+                    np.array(all_scores)
+                )
+
+                print(f"   📊 Resultado: Accuracy={metrics.get('accuracy', 0):.4f}, AUC={metrics.get('auc_roc', 0):.4f}")
+
+                # Guardar resultados si se especifica directorio
+                if output_dir:
+                    result_dir = Path(output_dir) / f"eval_{config_name}"
+                    result_dir.mkdir(parents=True, exist_ok=True)
+
+                    save_results_to_csv(
+                        all_targets, all_predictions, all_scores, str(result_dir / "results.csv")
+                    )
+
+                    # Guardar gráficos si es clasificación binaria
+                    if len(set(all_targets)) == 2:
+                        plot_roc_curve(all_targets, all_scores, str(result_dir / "roc_curve.png"))
+                        plot_confusion_matrix(
+                            all_targets, all_predictions, str(result_dir / "confusion_matrix.png")
+                        )
+
+                all_results[config_name] = metrics
+
+            except Exception as e:
+                print(f"   ❌ Error evaluando {config_name}: {e}")
+                all_results[config_name] = {"error": str(e)}
+
+        return all_results
+
     def _save_evaluation_results(
         self,
         metrics: Dict,

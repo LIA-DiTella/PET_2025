@@ -264,6 +264,26 @@ class BestModelMultiEvaluator:
 
         return str(temp_config_path)
 
+    def load_all_evaluation_datasets_for_multi_config(self, multi_config_path: str) -> Dict:
+        """Carga todos los datasets de evaluación usando configuración multi-dataset.
+        
+        Args:
+            multi_config_path: Ruta a configuración que contiene data, data2, data3
+            
+        Returns:
+            Dict con test loaders pre-cargados
+        """
+        try:
+            # Cargar configuración multi-dataset
+            with open(multi_config_path, 'r') as f:
+                import yaml
+                multi_config = yaml.safe_load(f)
+            
+            return self.evaluator.load_all_evaluation_datasets(multi_config)
+        except Exception as e:
+            print(f"❌ Error cargando datasets de evaluación: {e}")
+            return {}
+
     def evaluate_model_on_all_datasets(self, model_info: Dict) -> Dict:
         """Evalúa un modelo en todos los conjuntos de datos disponibles.
 
@@ -299,6 +319,79 @@ class BestModelMultiEvaluator:
             evaluation_results = self.evaluator.evaluate_on_multiple_datasets(
                 model=model,
                 original_config=original_config,
+                output_dir=str(
+                    self.output_dir / f"{model_info['model']}_{model_info['dimension']}"
+                ),
+            )
+
+            # Mapear los nombres de las claves de configuración a nombres de datasets
+            config_to_dataset = {"data": "ADNI", "data2": "FLENI100", "data3": "FLENI600"}
+
+            # Transformar las claves de los resultados
+            final_results = {}
+            for config_key, metrics in evaluation_results.items():
+                dataset_name = config_to_dataset.get(config_key, config_key)
+                final_results[dataset_name] = metrics
+                if "error" not in metrics:
+                    print(
+                        f"   ✅ {dataset_name}: Accuracy={metrics.get('accuracy', 0):.4f}, AUC={metrics.get('auc_roc', 0):.4f}"
+                    )
+                else:
+                    print(f"   ❌ {dataset_name}: {metrics['error']}")
+
+            return final_results
+
+        except Exception as e:
+            print(f"❌ Error cargando modelo: {e}")
+            return {}
+        finally:
+            # Limpiar archivo temporal
+            if os.path.exists(multi_config_path):
+                os.remove(multi_config_path)
+
+    def evaluate_model_on_all_datasets_optimized(self, model_info: Dict) -> Dict:
+        """Evalúa un modelo en todos los conjuntos de datos disponibles de forma optimizada.
+
+        Args:
+            model_info: Información del modelo con experimento, checkpoint, etc.
+
+        Returns:
+            Dict con resultados de evaluación en todos los datasets
+        """
+        experiment = model_info["experiment"]
+        config_path = str(experiment["config_path"])
+        checkpoint_path = str(experiment["checkpoint_path"])
+
+        if not os.path.exists(checkpoint_path):
+            print(f"❌ No se encontró checkpoint: {checkpoint_path}")
+            return {}
+
+        print(f"🔍 Evaluando {model_info['model']}_{model_info['dimension']} (optimizado):")
+        print(f"   Experimento: {experiment['name']}")
+        print(f"   Checkpoint: {checkpoint_path}")
+        print(f"   Métrica original: {model_info['auc']:.4f}")
+
+        # Crear configuración con múltiples datasets
+        multi_config_path = self.create_multi_eval_config(config_path)
+
+        try:
+            # Cargar modelo
+            model, original_config = self.evaluator.load_model_from_checkpoint(
+                checkpoint_path, multi_config_path
+            )
+
+            # Cargar todos los datasets de evaluación una sola vez
+            test_loaders_cache = self.load_all_evaluation_datasets_for_multi_config(multi_config_path)
+            
+            if not test_loaders_cache:
+                print("❌ No se pudieron cargar los datasets de evaluación")
+                return {}
+
+            # Evaluar en todos los datasets usando el método optimizado
+            evaluation_results = self.evaluator.evaluate_on_multiple_datasets_optimized(
+                model=model,
+                original_config=original_config,
+                test_loaders_cache=test_loaders_cache,
                 output_dir=str(
                     self.output_dir / f"{model_info['model']}_{model_info['dimension']}"
                 ),
@@ -446,20 +539,98 @@ class BestModelMultiEvaluator:
 
         return all_results
 
+    def run_optimized_evaluation(
+        self,
+        max_models_per_type: int = 3,
+        save_detailed_results: bool = True,
+    ) -> pd.DataFrame:
+        """Ejecuta evaluación optimizada de mejores modelos en múltiples datasets.
+
+        Args:
+            max_models_per_type: Máximo número de mejores modelos por tipo a evaluar
+            save_detailed_results: Si guardar resultados detallados
+
+        Returns:
+            DataFrame con reporte consolidado
+        """
+        print("🚀 Iniciando evaluación optimizada de mejores modelos")
+
+        # Buscar experimentos válidos
+        all_experiments = self.find_all_experiments()
+        print(f"📊 Total de experimentos encontrados: {len(all_experiments)}")
+
+        if not all_experiments:
+            print("❌ No se encontraron experimentos válidos")
+            return pd.DataFrame()
+
+        # Encontrar mejores modelos por combinación
+        best_models = self.find_best_models_per_combination(all_experiments)
+        print(f"🏆 Mejores modelos por combinación: {len(best_models)}")
+
+        # Limitar número de modelos por tipo si se especifica
+        if max_models_per_type > 0:
+            limited_models = {}
+            for key, model_info in list(best_models.items())[:max_models_per_type * 4]:  # 4 models * dimensions
+                limited_models[key] = model_info
+            best_models = limited_models
+            print(f"🎯 Evaluando los {len(best_models)} mejores modelos")
+
+        all_results = {}
+
+        # Evaluar cada mejor modelo usando el método optimizado
+        for i, (model_dim_key, model_info) in enumerate(best_models.items()):
+            print(f"\n{'=' * 80}")
+            print(f"Evaluando modelo {i + 1}/{len(best_models)}: {model_dim_key}")
+            print(f"{'=' * 80}")
+
+            # Usar método optimizado
+            evaluation_results = self.evaluate_model_on_all_datasets_optimized(model_info)
+
+            all_results[model_dim_key] = {
+                "model": model_info["model"],
+                "dimension": model_info["dimension"],
+                "auc": model_info["auc"],
+                "experiment": model_info["experiment"],
+                "evaluations": evaluation_results,
+            }
+
+        # Generar reporte final
+        report_df = self.generate_evaluation_report(all_results)
+
+        if save_detailed_results:
+            # Guardar resultados detallados
+            detailed_results_path = self.output_dir / "detailed_results_optimized.json"
+            with open(detailed_results_path, "w") as f:
+                json.dump(self._make_serializable(all_results), f, indent=2)
+
+            # Guardar reporte como CSV
+            report_path = self.output_dir / "evaluation_report_optimized.csv"
+            report_df.to_csv(report_path, index=False)
+
+            print("\n📊 Resultados guardados:")
+            print(f"   📋 Reporte CSV: {report_path}")
+            print(f"   📝 Detalles JSON: {detailed_results_path}")
+
+        return report_df
+
     def _make_serializable(self, obj):
         """Convierte objetos no serializables a formato JSON-compatible."""
         import numpy as np
-
+        
         if isinstance(obj, np.ndarray):
             return obj.tolist()
-        elif isinstance(obj, (np.integer, np.floating)):
+        elif isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
             return float(obj)
         elif isinstance(obj, dict):
             return {key: self._make_serializable(value) for key, value in obj.items()}
         elif isinstance(obj, list):
             return [self._make_serializable(item) for item in obj]
         elif isinstance(obj, tuple):
-            return [self._make_serializable(item) for item in obj]
+            return tuple(self._make_serializable(item) for item in obj)
+        elif hasattr(obj, "__dict__"):
+            return self._make_serializable(obj.__dict__)
         else:
             return obj
 
@@ -481,6 +652,17 @@ def parse_args():
         default="./best_models_evaluation",
         help="Directorio de salida para resultados de evaluación",
     )
+    parser.add_argument(
+        "--max_models",
+        type=int,
+        default=1,
+        help="Máximo número de mejores modelos por tipo a evaluar (0 = todos, default: 1)",
+    )
+    parser.add_argument(
+        "--optimized",
+        action="store_true",
+        help="Usar evaluación optimizada con carga única de datasets",
+    )
 
     return parser.parse_args()
 
@@ -494,4 +676,32 @@ if __name__ == "__main__":
         output_dir=args.output_dir,
     )
 
-    results = evaluator.run_evaluation()
+    if args.optimized:
+        print("🚀 Usando evaluación optimizada con carga única de datasets")
+        # Usar método optimizado
+        report_df = evaluator.run_optimized_evaluation(
+            max_models_per_type=args.max_models,
+            save_detailed_results=True,
+        )
+        
+        # Mostrar resumen
+        if not report_df.empty:
+            print("\n📈 Resumen de resultados (optimizado):")
+            print(f"   Total de evaluaciones: {len(report_df)}")
+            print(f"   AUC promedio: {report_df['auc_roc'].mean():.4f}")
+            print(f"   Accuracy promedio: {report_df['accuracy'].mean():.4f}")
+
+            print("\n🏆 Top 5 mejores resultados por AUC:")
+            top_results = report_df.nlargest(5, 'auc_roc')[['model', 'dimension', 'dataset', 'auc_roc', 'accuracy']]
+            print(top_results.to_string(index=False))
+        else:
+            print("⚠️  No se generaron resultados para mostrar")
+    else:
+        print("🐌 Usando evaluación estándar (carga múltiple de datasets)")
+        # Usar método estándar
+        results = evaluator.run_evaluation()
+        
+        if results:
+            print("✅ Evaluación completada con método estándar")
+        else:
+            print("❌ No se obtuvieron resultados")
