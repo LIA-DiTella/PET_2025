@@ -340,6 +340,9 @@ class ModelEvaluator:
             except Exception as e:
                 print(f"❌ Error evaluando {config_name}: {e}")
                 all_results[config_name] = {"error": str(e)}
+                import traceback
+
+                traceback.print_exc()
                 continue
 
         # Guardar resumen comparativo
@@ -358,7 +361,7 @@ class ModelEvaluator:
             Dict con test loaders pre-cargados para cada configuración
         """
         print("\n🔄 Cargando todos los datasets de evaluación...")
-        
+
         # Encontrar todas las configuraciones de datos (data, data2, data3, etc.)
         data_configs = {}
         for key, value in original_config.items():
@@ -371,10 +374,10 @@ class ModelEvaluator:
             return {}
 
         test_loaders_cache = {}
-        
+
         for config_name, data_config in data_configs.items():
             dataset_name = data_config.get("dataset_name", config_name)
-            
+
             try:
                 # Crear configuración temporal para esta evaluación
                 temp_config = original_config.copy()
@@ -390,14 +393,14 @@ class ModelEvaluator:
                 else:
                     print(f"      ❌ {dataset_name}: No se pudo crear test loader")
                     test_loaders_cache[config_name] = None
-                    
+
             except Exception as e:
                 print(f"      ❌ Error cargando {dataset_name}: {e}")
                 test_loaders_cache[config_name] = None
-                
+
         loaded_count = len([k for k, v in test_loaders_cache.items() if v is not None])
         print(f"✅ Datasets de evaluación cargados: {loaded_count}/{len(data_configs)}")
-        
+
         return test_loaders_cache
 
     def evaluate_on_multiple_datasets_optimized(
@@ -421,7 +424,7 @@ class ModelEvaluator:
         # Si no se proporcionó cache, cargar datasets
         if test_loaders_cache is None:
             test_loaders_cache = self.load_all_evaluation_datasets(original_config)
-        
+
         if not test_loaders_cache:
             print("⚠️  No hay datasets disponibles para evaluación")
             return {}
@@ -431,9 +434,9 @@ class ModelEvaluator:
         for config_name, test_loader in test_loaders_cache.items():
             if test_loader is None:
                 continue
-                
+
             print(f"\n📊 Evaluando configuración: {config_name}")
-            
+
             # Obtener información del dataset desde la configuración original
             data_config = original_config.get(config_name, {})
             dataset_name = data_config.get("dataset_name", config_name)
@@ -448,7 +451,7 @@ class ModelEvaluator:
 
                 print(f"   🔍 Evaluando en {dataset_name}...")
                 start_time = time.time()
-                
+
                 with torch.no_grad():
                     for batch_idx, (data, target) in enumerate(test_loader):
                         data, target = data.to(self.device), target.to(self.device)
@@ -465,7 +468,7 @@ class ModelEvaluator:
                         # Guardar resultados - asegurar que todos sean listas de elementos individuales
                         targets_batch = target.cpu().numpy().tolist()
                         predictions_batch = predicted.cpu().numpy().tolist()
-                        
+
                         all_targets.extend(targets_batch)
                         all_predictions.extend(predictions_batch)
 
@@ -519,6 +522,10 @@ class ModelEvaluator:
             except Exception as e:
                 print(f"   ❌ Error evaluando {config_name}: {e}")
                 all_results[config_name] = {"error": str(e)}
+
+                # print stack trace for debugging
+                import traceback
+                traceback.print_exc()
 
         return all_results
 
