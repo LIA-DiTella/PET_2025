@@ -12,7 +12,7 @@ from models.inceptionv3.inceptionv3_2d import InceptionV3_2D
 from utils.config_utils import save_config
 
 # Importar utilidades
-from utils.evaluation_utils import calculate_metrics, save_results_to_csv
+from utils.evaluation_utils import calculate_metrics, save_metrics_to_csv
 
 # Importar wandb para logging de experimentos
 try:
@@ -260,6 +260,7 @@ class Trainer:
             config=self.config,
             dir=self.exp_dir,
             resume="allow",
+            reinit=True,
         )
 
         # Hacer seguimiento del modelo si está habilitado
@@ -333,21 +334,22 @@ class Trainer:
             # )
 
             # Logging a wandb
-            wandb.log(
-                {
-                    "epoch": epoch,
-                    "train_loss": train_loss,
-                    "train_accuracy": train_acc,
-                    "val_loss": val_loss,
-                    "val_accuracy": val_acc,
-                    "learning_rate": self.optimizer.param_groups[0]["lr"],
-                    "train_auc_roc": train_auc,
-                    "val_auc_roc": val_auc,
-                    "train_metrics": train_metrics,
-                    "val_metrics": val_metrics,
-                },
-                step=epoch,
-            )
+            if self.use_wandb:
+                wandb.log(
+                    {
+                        "epoch": epoch,
+                        "train_loss": train_loss,
+                        "train_accuracy": train_acc,
+                        "val_loss": val_loss,
+                        "val_accuracy": val_acc,
+                        "learning_rate": self.optimizer.param_groups[0]["lr"],
+                        "train_auc_roc": train_auc,
+                        "val_auc_roc": val_auc,
+                        "train_metrics": train_metrics,
+                        "val_metrics": val_metrics,
+                    },
+                    step=epoch,
+                )
 
             # Actualizar scheduler si es ReduceLROnPlateau
             if self.scheduler and isinstance(
@@ -430,7 +432,8 @@ class Trainer:
                 plt.xlabel("Predicción")
 
                 # Guardar y loggear a wandb
-                wandb.log({"train_confusion_matrix": wandb.Image(plt)})
+                if self.use_wandb:
+                    wandb.log({"train_confusion_matrix": wandb.Image(plt)})
                 plt.close()
             except ImportError:
                 self.logger.warning(
@@ -623,11 +626,12 @@ class Trainer:
                         "matplotlib y/o seaborn no están disponibles para visualizar la matriz de confusión"
                     )
 
-            wandb.log(wandb_metrics)
+            if self.use_wandb:
+                wandb.log(wandb_metrics)
 
         # Guardar resultados
         if save_results:
             save_path = os.path.join(self.exp_dir, "results", "test_metrics.csv")
-            save_results_to_csv(metrics, save_path)
+            save_metrics_to_csv(metrics, save_path)
 
         return metrics

@@ -40,6 +40,7 @@ from utils.evaluation_utils import (
     plot_confusion_matrix,
     plot_roc_curve,
     save_results_to_csv,
+    save_metrics_to_csv,
 )
 
 
@@ -242,6 +243,7 @@ class ModelEvaluator:
             self._save_evaluation_results(
                 metrics,
                 all_targets,
+                all_predictions,
                 all_scores,
                 target_dataset,
                 target_classes,
@@ -348,6 +350,7 @@ class ModelEvaluator:
                     self._save_evaluation_results(
                         metrics,
                         all_targets,
+                        all_predictions,
                         all_scores,
                         dataset_name,
                         classes,
@@ -568,6 +571,7 @@ class ModelEvaluator:
         self,
         metrics: Dict,
         targets: List,
+        predictions: List,
         scores: List,
         dataset_name: str,
         classes: str,
@@ -577,7 +581,7 @@ class ModelEvaluator:
         """Guarda los resultados de evaluación."""
         os.makedirs(output_dir, exist_ok=True)
 
-        # Guardar métricas
+        # Guardar métricas en JSON
         results_file = os.path.join(output_dir, f"{dataset_name}_{classes}_metrics.json")
         with open(results_file, "w") as f:
             json.dump(
@@ -586,9 +590,13 @@ class ModelEvaluator:
                 indent=2,
             )
 
-        # Guardar CSV con métricas
-        csv_file = os.path.join(output_dir, f"{dataset_name}_{classes}_metrics.csv")
-        save_results_to_csv(metrics, csv_file)
+        # Guardar métricas en CSV
+        metrics_csv_file = os.path.join(output_dir, f"{dataset_name}_{classes}_metrics.csv")
+        save_metrics_to_csv(metrics, metrics_csv_file)
+
+        # Guardar CSV con resultados de predicción
+        predictions_csv_file = os.path.join(output_dir, f"{dataset_name}_{classes}_predictions.csv")
+        save_results_to_csv(targets, predictions, scores, predictions_csv_file)
 
         # Generar visualizaciones
         class_names = classes.split("_")

@@ -138,16 +138,18 @@ def train_model(config_path, gpu_id=None, data_loaders=None, use_otsu_masking=No
         model, config, device, exp_dir, train_loader, val_loader, test_loader, num_classes
     )
 
-    # Entrenar modelo
-    training_results = trainer.train(train_loader, val_loader)
+    try:
+        # Entrenar modelo
+        training_results = trainer.train(train_loader, val_loader)
 
-    # Evaluar en conjunto de prueba
-    test_metrics = trainer.evaluate(test_loader, save_results=True) if test_loader else None
+        # Evaluar en conjunto de prueba
+        test_metrics = trainer.evaluate(test_loader, save_results=True) if test_loader else None
 
-    # Cerrar wandb
-    trainer.close_wandb()
-
-    return {"training": training_results, "evaluation": test_metrics, "exp_dir": exp_dir}
+        return {"training": training_results, "evaluation": test_metrics, "exp_dir": exp_dir}
+    
+    finally:
+        # Cerrar wandb siempre, incluso si hay una excepción
+        trainer.close_wandb()
 
 
 def parse_args():
