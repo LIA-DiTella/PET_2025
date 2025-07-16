@@ -198,8 +198,8 @@ class BestModelMultiEvaluator:
             model = "inceptionv3"
         elif "vit" in exp_name.lower():
             model = "vit"
-        elif "swin" in exp_name.lower():
-            model = "swin"
+        elif "swin_transformer" in exp_name.lower() or "swin" in exp_name.lower():
+            model = "swin_transformer"
 
         if "2d" in exp_name.lower():
             dimension = "2d"
@@ -558,6 +558,16 @@ class BestModelMultiEvaluator:
         # Buscar experimentos válidos
         all_experiments = self.find_all_experiments()
         print(f"📊 Total de experimentos encontrados: {len(all_experiments)}")
+        
+        # Debug: mostrar qué modelos se encontraron
+        model_counts = {}
+        for exp in all_experiments:
+            model = exp.get("model", "unknown")
+            model_counts[model] = model_counts.get(model, 0) + 1
+        
+        print("🔍 Modelos encontrados:")
+        for model, count in model_counts.items():
+            print(f"   {model}: {count} experimentos")
 
         if not all_experiments:
             print("❌ No se encontraron experimentos válidos")
