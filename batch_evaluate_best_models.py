@@ -576,6 +576,27 @@ class BestModelMultiEvaluator:
         # Encontrar mejores modelos por combinación
         best_models = self.find_best_models_per_combination(all_experiments)
         print(f"🏆 Mejores modelos por combinación: {len(best_models)}")
+        
+        # Debug: mostrar qué mejores modelos se encontraron
+        print("🏆 Mejores modelos seleccionados:")
+        for model_dim_key, info in best_models.items():
+            print(f"   {model_dim_key}: AUC={info['auc']:.4f}, Experimento={info['experiment']['name'][:60]}...")
+        
+        # Debug: mostrar experimentos de Swin específicamente
+        swin_experiments = [exp for exp in all_experiments if exp.get("model") == "swin_transformer"]
+        print(f"\n🔍 Debug - Experimentos de Swin Transformer encontrados: {len(swin_experiments)}")
+        for exp in swin_experiments[:5]:  # Mostrar solo los primeros 5
+            metrics = exp.get("metrics", {})
+            auc_found = None
+            for key in ["auc_roc", "auc", "roc_auc", "test_auc", "val_auc", "accuracy"]:
+                if key in metrics and metrics[key] is not None:
+                    auc_found = f"{key}={metrics[key]}"
+                    break
+            print(f"   {exp['name'][:60]}... | {exp['model']}_{exp['dimension']} | Métrica: {auc_found}")
+            print(f"      Métricas disponibles: {list(metrics.keys())}")
+        
+        if len(swin_experiments) > 5:
+            print(f"   ... y {len(swin_experiments) - 5} experimentos más de Swin")
 
         # Limitar número de modelos por tipo si se especifica
         if max_models_per_type > 0:
