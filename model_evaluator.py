@@ -381,6 +381,7 @@ class ModelEvaluator:
                 temp_config["data"] = data_config
 
                 # Obtener solo el test loader para esta configuración
+                print("   📈 Cargando test loader para:", dataset_name)
                 test_loader = get_test_data_loader(temp_config, "data")
 
                 if test_loader is not None:
