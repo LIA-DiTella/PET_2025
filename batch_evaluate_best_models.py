@@ -601,10 +601,28 @@ class BestModelMultiEvaluator:
         # Limitar número de modelos por tipo si se especifica
         if max_models_per_type > 0:
             limited_models = {}
-            for key, model_info in list(best_models.items())[:max_models_per_type * 4]:  # 4 models * dimensions
-                limited_models[key] = model_info
+            # Asegurar que incluimos al menos un modelo de cada combinación modelo-dimensión
+            target_combinations = [
+                "resnet18_2d", "resnet18_3d",
+                "inceptionv3_2d", "inceptionv3_3d",
+                "vit_2d", "vit_3d",
+                "swin_transformer_2d", "swin_transformer_3d"
+            ]
+            
+            # Primero, incluir el mejor modelo de cada combinación objetivo
+            for combo in target_combinations:
+                if combo in best_models:
+                    limited_models[combo] = best_models[combo]
+            
+            # Luego, llenar con los mejores modelos restantes hasta el límite
+            remaining_slots = max_models_per_type * 4 - len(limited_models)
+            for key, model_info in best_models.items():
+                if key not in limited_models and remaining_slots > 0:
+                    limited_models[key] = model_info
+                    remaining_slots -= 1
+            
             best_models = limited_models
-            print(f"🎯 Evaluando los {len(best_models)} mejores modelos")
+            print(f"🎯 Evaluando {len(best_models)} modelos (garantizando cobertura completa)")
 
         all_results = {}
 
