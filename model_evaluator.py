@@ -511,7 +511,10 @@ class ModelEvaluator:
                     )
 
                     # Guardar gráficos si es clasificación binaria
-                    if len(set(all_targets)) == 2:
+                    # if len(set(all_targets)) == 2:
+                    # TypeError: unhashable type: 'list'
+                    print(all_targets)
+                    if len(all_targets) <= 2:  # Asegurar que sea binaria o multiclase
                         plot_roc_curve(all_targets, all_scores, str(result_dir / "roc_curve.png"))
                         plot_confusion_matrix(
                             all_targets, all_predictions, str(result_dir / "confusion_matrix.png")
