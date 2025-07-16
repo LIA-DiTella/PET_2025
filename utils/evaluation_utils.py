@@ -148,7 +148,13 @@ def plot_roc_curve(y_true, y_score, class_names, save_path=None) -> None:
 
     # Para caso binario
     if len(class_names) == 2:
-        fpr, tpr, _ = roc_curve(y_true, y_score)
+        # Para clasificación binaria, usar las probabilidades de la clase positiva
+        if y_score.ndim == 2 and y_score.shape[1] == 2:
+            y_score_binary = y_score[:, 1]  # Probabilidad de clase positiva
+        else:
+            y_score_binary = y_score.flatten()
+            
+        fpr, tpr, _ = roc_curve(y_true, y_score_binary)
         roc_auc = auc(fpr, tpr)
 
         plt.plot(fpr, tpr, lw=2, label=f"ROC curve (area = {roc_auc:.2f})")
@@ -156,23 +162,34 @@ def plot_roc_curve(y_true, y_score, class_names, save_path=None) -> None:
 
     # Para caso multiclase
     else:
-        # Binarizar las etiquetas
-        y_true_bin = label_binarize(y_true, classes=np.arange(len(class_names)))
+        # Obtener las clases únicas reales de y_true
+        unique_classes = np.unique(y_true)
+        
+        # Binarizar las etiquetas usando las clases reales
+        y_true_bin = label_binarize(y_true, classes=unique_classes)
+        
+        # Asegurar que y_score tenga las dimensiones correctas
+        if y_score.ndim == 2 and y_score.shape[1] == len(unique_classes):
+            # y_score ya tiene las dimensiones correctas
+            pass
+        else:
+            raise ValueError(f"y_score debe tener shape (n_samples, n_classes) para multiclase. Got {y_score.shape}")
 
         # Calcular ROC para cada clase
         fpr = {}
         tpr = {}
         roc_auc = {}
 
-        for i in range(len(class_names)):
-            fpr[i], tpr[i], _ = roc_curve(y_true_bin[:, i], y_score[:, i])
-            roc_auc[i] = auc(fpr[i], tpr[i])
-            plt.plot(
-                fpr[i],
-                tpr[i],
-                lw=2,
-                label=f"ROC curve {class_names[i]} (area = {roc_auc[i]:.2f})",
-            )
+        for i, class_idx in enumerate(unique_classes):
+            if i < y_score.shape[1]:  # Asegurar que el índice esté dentro del rango
+                fpr[i], tpr[i], _ = roc_curve(y_true_bin[:, i], y_score[:, i])
+                roc_auc[i] = auc(fpr[i], tpr[i])
+                plt.plot(
+                    fpr[i],
+                    tpr[i],
+                    lw=2,
+                    label=f"ROC curve {class_names[i]} (area = {roc_auc[i]:.2f})",
+                )
 
         plt.plot([0, 1], [0, 1], "k--", lw=2)
 

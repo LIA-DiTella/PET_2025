@@ -515,6 +515,7 @@ class ModelEvaluator:
                 all_scores = np.array(all_scores)
                 
                 print(f"   🔍 Arrays finales - targets: {all_targets.shape}, predictions: {all_predictions.shape}, scores: {all_scores.shape}")
+                print(f"   🔍 Valores únicos - targets: {np.unique(all_targets)}, predictions: {np.unique(all_predictions)}")
                 
                 metrics = calculate_metrics(all_targets, all_predictions, all_scores)
 
@@ -530,11 +531,26 @@ class ModelEvaluator:
                     )
 
                     # Guardar gráficos si es clasificación binaria
-                    if len(np.unique(all_targets)) == 2:  # Verificar clases únicas en lugar de dimensión
-                        plot_roc_curve(all_targets, all_scores, str(result_dir / "roc_curve.png"))
-                        plot_confusion_matrix(
-                            all_targets, all_predictions, str(result_dir / "confusion_matrix.png")
-                        )
+                    unique_classes = np.unique(all_targets)
+                    class_names = [f"Class_{cls}" for cls in unique_classes]
+
+                    if len(unique_classes) == 2:  # Verificar clases únicas en lugar de dimensión
+                        print(f"   📊 Debug plotting: unique_classes={unique_classes}, class_names={class_names}")
+                        print(f"   📊 Debug plotting: all_scores.shape={all_scores.shape}")
+                        
+                        try:
+                            plot_roc_curve(all_targets, all_scores, class_names, str(result_dir / "roc_curve.png"))
+                        except Exception as plot_error:
+                            print(f"   ❌ Error en plot_roc_curve: {plot_error}")
+                        
+                        # Usar la matriz de confusión ya calculada en metrics
+                        if "confusion_matrix" in metrics:
+                            try:
+                                plot_confusion_matrix(
+                                    np.array(metrics["confusion_matrix"]), class_names, str(result_dir / "confusion_matrix.png")
+                                )
+                            except Exception as cm_error:
+                                print(f"   ❌ Error en plot_confusion_matrix: {cm_error}")
 
                 all_results[config_name] = metrics
 
