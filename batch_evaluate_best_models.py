@@ -616,6 +616,7 @@ class BestModelMultiEvaluator:
     def _make_serializable(self, obj):
         """Convierte objetos no serializables a formato JSON-compatible."""
         import numpy as np
+        from pathlib import Path
         
         if isinstance(obj, np.ndarray):
             return obj.tolist()
@@ -623,6 +624,8 @@ class BestModelMultiEvaluator:
             return int(obj)
         elif isinstance(obj, np.floating):
             return float(obj)
+        elif isinstance(obj, Path):
+            return str(obj)
         elif isinstance(obj, dict):
             return {key: self._make_serializable(value) for key, value in obj.items()}
         elif isinstance(obj, list):
