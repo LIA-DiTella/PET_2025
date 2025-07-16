@@ -216,15 +216,21 @@ class ModelEvaluator:
                 # Manejar targets: convertir de one-hot a índices si es necesario
                 target_indices = target.argmax(dim=1) if target.dim() > 1 else target
 
-                all_targets.extend(target_indices.cpu().numpy())
-                all_predictions.extend(predictions.cpu().numpy())
-                all_scores.extend(scores.cpu().numpy())
+                all_targets.extend(target_indices.cpu().numpy().tolist())
+                all_predictions.extend(predictions.cpu().numpy().tolist())
+                all_scores.extend(scores.cpu().numpy().tolist())
 
                 if batch_idx % 10 == 0:
                     print(f"   Procesado: {batch_idx + 1}/{len(test_loader)} batches")
 
         # Calcular métricas
         try:
+            all_targets = np.array(all_targets)
+            all_predictions = np.array(all_predictions)
+            all_scores = np.array(all_scores)
+            
+            print(f"   🔍 Arrays finales - targets: {all_targets.shape}, predictions: {all_predictions.shape}, scores: {all_scores.shape}")
+            
             metrics = calculate_metrics(all_targets, all_predictions, all_scores)
             print(f"✅ Evaluación completada - AUC: {metrics.get('auc_roc', 'N/A'):.4f}")
         except Exception as e:
@@ -311,14 +317,20 @@ class ModelEvaluator:
                         # Manejar targets: convertir de one-hot a índices si es necesario
                         target_indices = target.argmax(dim=1) if target.dim() > 1 else target
 
-                        all_targets.extend(target_indices.cpu().numpy())
-                        all_predictions.extend(predictions.cpu().numpy())
-                        all_scores.extend(scores.cpu().numpy())
+                        all_targets.extend(target_indices.cpu().numpy().tolist())
+                        all_predictions.extend(predictions.cpu().numpy().tolist())
+                        all_scores.extend(scores.cpu().numpy().tolist())
 
                         if batch_idx % 10 == 0 and batch_idx > 0:
                             print(f"      Procesado: {batch_idx + 1}/{len(test_loader)} batches")
 
                 # Calcular métricas
+                all_targets = np.array(all_targets)
+                all_predictions = np.array(all_predictions)
+                all_scores = np.array(all_scores)
+                
+                print(f"   🔍 Arrays finales - targets: {all_targets.shape}, predictions: {all_predictions.shape}, scores: {all_scores.shape}")
+                
                 metrics = calculate_metrics(all_targets, all_predictions, all_scores)
                 print(f"   ✅ {config_name} completado - AUC: {metrics.get('auc_roc', 'N/A'):.4f}")
 
@@ -474,16 +486,22 @@ class ModelEvaluator:
                         # Manejar targets: convertir de one-hot a índices si es necesario
                         target_indices = target.argmax(dim=1) if target.dim() > 1 else target
 
-                        # Guardar resultados
-                        all_targets.extend(target_indices.cpu().numpy())
-                        all_predictions.extend(predictions.cpu().numpy())
+                        # Guardar resultados - usar listas para almacenar cada muestra
+                        all_targets.extend(target_indices.cpu().numpy().tolist())
+                        all_predictions.extend(predictions.cpu().numpy().tolist())
                         
                         # Siempre guardar probabilidades completas (para consistencia con trainer.py)
-                        all_scores.extend(probabilities.cpu().numpy())
+                        # Para 2D: convertir a lista de listas, luego extender
+                        probabilities_np = probabilities.cpu().numpy()
+                        all_scores.extend(probabilities_np.tolist())
 
                         # Debug: verificar longitudes cada 10 batches
                         if (batch_idx + 1) % 10 == 0:
-                            print(f"      Batch {batch_idx + 1}: target_shape={target.shape}, probabilities_shape={probabilities.shape}, all_targets={len(all_targets)}, all_predictions={len(all_predictions)}, all_scores={len(all_scores)}")
+                            print(f"      Batch {batch_idx + 1}: target_shape={target.shape}, probabilities_shape={probabilities.shape}")
+                            print(f"         target_indices_shape={target_indices.shape}, all_targets={len(all_targets)}, all_predictions={len(all_predictions)}, all_scores={len(all_scores)}")
+                            if batch_idx == 9:  # Solo en el primer debug, mostrar shapes de los arrays numpy
+                                print(f"         Sample target_indices: {target_indices.cpu().numpy()[:3]}")
+                                print(f"         Sample probabilities: {probabilities.cpu().numpy()[:2]}")
 
                         if (batch_idx + 1) % 50 == 0:
                             print(f"      Procesados {batch_idx + 1}/{len(test_loader)} batches")
@@ -495,6 +513,8 @@ class ModelEvaluator:
                 all_targets = np.array(all_targets)
                 all_predictions = np.array(all_predictions)
                 all_scores = np.array(all_scores)
+                
+                print(f"   🔍 Arrays finales - targets: {all_targets.shape}, predictions: {all_predictions.shape}, scores: {all_scores.shape}")
                 
                 metrics = calculate_metrics(all_targets, all_predictions, all_scores)
 
