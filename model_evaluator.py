@@ -213,7 +213,10 @@ class ModelEvaluator:
                 scores = torch.softmax(output, dim=1)
                 predictions = torch.argmax(output, dim=1)
 
-                all_targets.extend(target.cpu().numpy())
+                # Manejar targets: convertir de one-hot a índices si es necesario
+                target_indices = target.argmax(dim=1) if target.dim() > 1 else target
+
+                all_targets.extend(target_indices.cpu().numpy())
                 all_predictions.extend(predictions.cpu().numpy())
                 all_scores.extend(scores.cpu().numpy())
 
@@ -305,7 +308,10 @@ class ModelEvaluator:
                         scores = torch.softmax(output, dim=1)
                         predictions = torch.argmax(output, dim=1)
 
-                        all_targets.extend(target.cpu().numpy())
+                        # Manejar targets: convertir de one-hot a índices si es necesario
+                        target_indices = target.argmax(dim=1) if target.dim() > 1 else target
+
+                        all_targets.extend(target_indices.cpu().numpy())
                         all_predictions.extend(predictions.cpu().numpy())
                         all_scores.extend(scores.cpu().numpy())
 
@@ -463,28 +469,25 @@ class ModelEvaluator:
                         probabilities = torch.softmax(outputs, dim=1)
 
                         # Obtener predicciones (clase con mayor probabilidad)
-                        _, predicted = torch.max(outputs, 1)
+                        predictions = torch.argmax(outputs, dim=1)
 
-                        # Guardar resultados - asegurar que todos sean listas de elementos individuales
-                        targets_batch = target.cpu().numpy().tolist()
-                        predictions_batch = predicted.cpu().numpy().tolist()
+                        # Manejar targets: convertir de one-hot a índices si es necesario
+                        target_indices = target.argmax(dim=1) if target.dim() > 1 else target
 
-                        all_targets.extend(targets_batch)
-                        all_predictions.extend(predictions_batch)
+                        # Guardar resultados
+                        all_targets.extend(target_indices.cpu().numpy())
+                        all_predictions.extend(predictions.cpu().numpy())
+                        
+                        # Para problemas binarios, usar probabilidad de la clase positiva
+                        if probabilities.shape[1] == 2:
+                            all_scores.extend(probabilities[:, 1].cpu().numpy())
+                        else:
+                            # Para multiclase, usar probabilidades completas
+                            all_scores.extend(probabilities.cpu().numpy())
 
                         # Debug: verificar longitudes cada 10 batches
                         if (batch_idx + 1) % 10 == 0:
-                            print(f"      Batch {batch_idx + 1}: targets_batch={len(targets_batch)}, all_targets={len(all_targets)}, all_predictions={len(all_predictions)}")
-
-                        # Para problemas binarios, usar probabilidad de la clase positiva
-                        if probabilities.shape[1] == 2:
-                            scores_batch = probabilities[:, 1].cpu().numpy().tolist()
-                            all_scores.extend(scores_batch)
-                        else:
-                            # Para multiclase, usar probabilidad máxima
-                            max_probs, _ = torch.max(probabilities, 1)
-                            scores_batch = max_probs.cpu().numpy().tolist()
-                            all_scores.extend(scores_batch)
+                            print(f"      Batch {batch_idx + 1}: target_shape={target.shape}, all_targets={len(all_targets)}, all_predictions={len(all_predictions)}")
 
                         if (batch_idx + 1) % 50 == 0:
                             print(f"      Procesados {batch_idx + 1}/{len(test_loader)} batches")
@@ -493,11 +496,11 @@ class ModelEvaluator:
                 print(f"   ⏱️  Evaluación completada en {eval_time:.1f}s")
 
                 # Calcular métricas
-                metrics = calculate_metrics(
-                    np.array(all_targets),
-                    np.array(all_predictions),
-                    np.array(all_scores)
-                )
+                all_targets = np.array(all_targets)
+                all_predictions = np.array(all_predictions)
+                all_scores = np.array(all_scores)
+                
+                metrics = calculate_metrics(all_targets, all_predictions, all_scores)
 
                 print(f"   📊 Resultado: Accuracy={metrics.get('accuracy', 0):.4f}, AUC={metrics.get('auc_roc', 0):.4f}")
 
@@ -511,10 +514,7 @@ class ModelEvaluator:
                     )
 
                     # Guardar gráficos si es clasificación binaria
-                    # if len(set(all_targets)) == 2:
-                    # TypeError: unhashable type: 'list'
-                    print(all_targets)
-                    if len(all_targets) <= 2:  # Asegurar que sea binaria o multiclase
+                    if len(np.unique(all_targets)) == 2:  # Verificar clases únicas en lugar de dimensión
                         plot_roc_curve(all_targets, all_scores, str(result_dir / "roc_curve.png"))
                         plot_confusion_matrix(
                             all_targets, all_predictions, str(result_dir / "confusion_matrix.png")
