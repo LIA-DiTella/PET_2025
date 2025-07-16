@@ -478,16 +478,12 @@ class ModelEvaluator:
                         all_targets.extend(target_indices.cpu().numpy())
                         all_predictions.extend(predictions.cpu().numpy())
                         
-                        # Para problemas binarios, usar probabilidad de la clase positiva
-                        if probabilities.shape[1] == 2:
-                            all_scores.extend(probabilities[:, 1].cpu().numpy())
-                        else:
-                            # Para multiclase, usar probabilidades completas
-                            all_scores.extend(probabilities.cpu().numpy())
+                        # Siempre guardar probabilidades completas (para consistencia con trainer.py)
+                        all_scores.extend(probabilities.cpu().numpy())
 
                         # Debug: verificar longitudes cada 10 batches
                         if (batch_idx + 1) % 10 == 0:
-                            print(f"      Batch {batch_idx + 1}: target_shape={target.shape}, all_targets={len(all_targets)}, all_predictions={len(all_predictions)}")
+                            print(f"      Batch {batch_idx + 1}: target_shape={target.shape}, probabilities_shape={probabilities.shape}, all_targets={len(all_targets)}, all_predictions={len(all_predictions)}, all_scores={len(all_scores)}")
 
                         if (batch_idx + 1) % 50 == 0:
                             print(f"      Procesados {batch_idx + 1}/{len(test_loader)} batches")
